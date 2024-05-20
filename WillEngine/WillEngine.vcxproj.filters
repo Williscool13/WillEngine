@@ -27,21 +27,6 @@
     <ClCompile Include="src\libraryTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="test.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\fastgltf.cpp">
-      <Filter>Source Files\fastgltf</Filter>
-    </ClCompile>
-    <ClCompile Include="src\fastgltf.ixx">
-      <Filter>Source Files\fastgltf</Filter>
-    </ClCompile>
-    <ClCompile Include="src\io.cpp">
-      <Filter>Source Files\fastgltf</Filter>
-    </ClCompile>
-    <ClCompile Include="src\base64.cpp">
-      <Filter>Source Files\fastgltf</Filter>
-    </ClCompile>
     <ClCompile Include="include\imgui\imgui_tables.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
@@ -57,8 +42,44 @@
     <ClCompile Include="include\imgui\imgui_draw.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="src\simdjson.cpp">
+    <ClCompile Include="src\fastgltf\fastgltf.cpp">
+      <Filter>Source Files\fastgltf</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fastgltf\fastgltf.ixx">
+      <Filter>Source Files\fastgltf</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fastgltf\io.cpp">
+      <Filter>Source Files\fastgltf</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fastgltf\base64.cpp">
+      <Filter>Source Files\fastgltf</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simdjson\simdjson.cpp">
       <Filter>Source Files\simdjson</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vk_images.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vk_initializers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vk_loader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vk_pipelines.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vk_descriptors.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vk_engine.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

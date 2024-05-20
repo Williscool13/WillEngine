@@ -105,13 +105,14 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\VulkanSDK\1.3.283.0\Include;include</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>lib/SDL2.lib;lib/SDL2main.lib;lib/SDL2test.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>lib/SDL2.lib;lib/SDL2main.lib;lib/SDL2test.lib;D:/VulkanSDK/1.3.283.0/Lib/vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\VulkanSDK\1.3.283.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -123,7 +124,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\VulkanSDK\1.3.283.0\Include;include</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -131,7 +132,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>lib/SDL2.lib;lib/SDL2main.lib;lib/SDL2test.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>lib/SDL2.lib;lib/SDL2main.lib;lib/SDL2test.lib;D:/VulkanSDK/1.3.283.0/Lib/vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\VulkanSDK\1.3.283.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -140,13 +142,20 @@
     <ClCompile Include="include\imgui\imgui_draw.cpp" />
     <ClCompile Include="include\imgui\imgui_tables.cpp" />
     <ClCompile Include="include\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="src\base64.cpp" />
-    <ClCompile Include="src\fastgltf.cpp" />
-    <ClCompile Include="src\fastgltf.ixx" />
-    <ClCompile Include="src\io.cpp" />
+    <ClCompile Include="src\camera.cpp" />
+    <ClCompile Include="src\fastgltf\base64.cpp" />
+    <ClCompile Include="src\fastgltf\fastgltf.cpp" />
+    <ClCompile Include="src\fastgltf\fastgltf.ixx" />
+    <ClCompile Include="src\fastgltf\io.cpp" />
     <ClCompile Include="src\libraryTests.cpp" />
-    <ClCompile Include="src\simdjson.cpp" />
-    <ClCompile Include="test.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\simdjson\simdjson.cpp" />
+    <ClCompile Include="src\vk_descriptors.cpp" />
+    <ClCompile Include="src\vk_engine.cpp" />
+    <ClCompile Include="src\vk_images.cpp" />
+    <ClCompile Include="src\vk_initializers.cpp" />
+    <ClCompile Include="src\vk_loader.cpp" />
+    <ClCompile Include="src\vk_pipelines.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\libraryTests.h" />
