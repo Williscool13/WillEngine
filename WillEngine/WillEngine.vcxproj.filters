@@ -22,6 +22,9 @@
     <Filter Include="Source Files\simdjson">
       <UniqueIdentifier>{af7b7d62-abde-4a42-b7fa-ca4b84bb297b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\vkbootstrap">
+      <UniqueIdentifier>{08aad50f-6288-4d81-861b-926229b36482}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\libraryTests.cpp">
@@ -81,12 +84,42 @@
     <ClCompile Include="src\vk_engine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="include\vkbootstrap\VkBootstrap.cpp">
+      <Filter>Source Files\vkbootstrap</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\libraryTests.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\willEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vk_engine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vk_images.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vk_initializers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vk_loader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vk_pipelines.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vk_types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\simdjson.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vk_descriptors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

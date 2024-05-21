@@ -142,6 +142,7 @@
     <ClCompile Include="include\imgui\imgui_draw.cpp" />
     <ClCompile Include="include\imgui\imgui_tables.cpp" />
     <ClCompile Include="include\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="include\vkbootstrap\VkBootstrap.cpp" />
     <ClCompile Include="src\camera.cpp" />
     <ClCompile Include="src\fastgltf\base64.cpp" />
     <ClCompile Include="src\fastgltf\fastgltf.cpp" />
@@ -158,7 +159,16 @@
     <ClCompile Include="src\vk_pipelines.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\camera.h" />
     <ClInclude Include="include\libraryTests.h" />
+    <ClInclude Include="include\simdjson.h" />
+    <ClInclude Include="include\vk_descriptors.h" />
+    <ClInclude Include="include\vk_engine.h" />
+    <ClInclude Include="include\vk_images.h" />
+    <ClInclude Include="include\vk_initializers.h" />
+    <ClInclude Include="include\vk_loader.h" />
+    <ClInclude Include="include\vk_pipelines.h" />
+    <ClInclude Include="include\vk_types.h" />
     <ClInclude Include="include\willEngine.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
