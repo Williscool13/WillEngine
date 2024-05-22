@@ -36,7 +36,7 @@ void vkutil::transition_image_optimized_one(VkCommandBuffer cmd, VkImage image, 
 
     imageBarrier.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     imageBarrier.srcAccessMask = 0;
-    imageBarrier.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    imageBarrier.dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
     imageBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
 
     imageBarrier.oldLayout = currentLayout;
@@ -61,8 +61,8 @@ void vkutil::transition_image_optimized_two(VkCommandBuffer cmd, VkImage image, 
     VkImageMemoryBarrier2 imageBarrier{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
     imageBarrier.pNext = nullptr;
 
-    imageBarrier.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    imageBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    imageBarrier.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
     imageBarrier.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     imageBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 
