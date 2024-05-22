@@ -25,6 +25,9 @@
     <Filter Include="Source Files\vkbootstrap">
       <UniqueIdentifier>{08aad50f-6288-4d81-861b-926229b36482}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{2887c6a3-f5ac-4cc1-94e0-3334a67f600f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\libraryTests.cpp">
@@ -122,5 +125,13 @@
     <ClInclude Include="include\vk_descriptors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\gradient.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="compile_shaders.sh">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

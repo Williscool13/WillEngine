@@ -114,6 +114,10 @@
       <AdditionalDependencies>lib/SDL2.lib;lib/SDL2main.lib;lib/SDL2test.lib;D:/VulkanSDK/1.3.283.0/Lib/vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>D:\VulkanSDK\1.3.283.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PreBuildEvent>
+      <Command>cd "$(ProjectDir)shaders"
+compile_shaders.sh</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -135,6 +139,10 @@
       <AdditionalDependencies>lib/SDL2.lib;lib/SDL2main.lib;lib/SDL2test.lib;D:/VulkanSDK/1.3.283.0/Lib/vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>D:\VulkanSDK\1.3.283.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PreBuildEvent>
+      <Command>cd "$(ProjectDir)shaders"
+compile_shaders.sh</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="include\imgui\imgui.cpp" />
@@ -170,6 +178,10 @@
     <ClInclude Include="include\vk_pipelines.h" />
     <ClInclude Include="include\vk_types.h" />
     <ClInclude Include="include\willEngine.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="compile_shaders.sh" />
+    <None Include="shaders\gradient.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
