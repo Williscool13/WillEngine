@@ -25,6 +25,24 @@ struct DeletionQueue
 };
 
 
+struct ComputePushConstants {
+	glm::vec4 data1;
+	glm::vec4 data2;
+	glm::vec4 data3;
+	glm::vec4 data4;
+};
+
+
+
+struct ComputeEffect {
+	const char* name;
+
+	VkPipeline pipeline;
+	VkPipelineLayout layout;
+
+	ComputePushConstants _data;
+};
+
 struct FrameData {
 	VkCommandPool _commandPool;
 	VkCommandBuffer _mainCommandBuffer;
@@ -51,7 +69,7 @@ public:
 
 	VkInstance _instance;
 	VkDebugUtilsMessengerEXT _debug_messenger;
-	VkPhysicalDevice _chosenGPU;
+	VkPhysicalDevice _physicalDevice;
 	VkDevice _device;
 	VkSurfaceKHR _surface;
 
@@ -89,14 +107,21 @@ public:
 	VkPipeline _gradientPipeline; // background
 	VkPipelineLayout _gradientPipelineLayout;
 
+	// Select between 2 background effects
+	std::vector<ComputeEffect> backgroundEffects;
+	int currentBackgroundEffect{ 0 };
+
+
 	void init();
 	void cleanup();
 	void draw_background(VkCommandBuffer cmd);
+	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	void draw();
 	void run();
 
 private:
 	void init_vulkan();
+	void init_dearimgui();
 	void init_swapchain();
 	void init_commands();
 	void init_sync_structures();

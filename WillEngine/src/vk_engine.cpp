@@ -4,10 +4,15 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
+#include <imgui/imgui.h>
+#include <imgui/backends/imgui_impl_sdl2.h>
+#include <imgui/backends/imgui_impl_vulkan.h>
+
 #include <vk_initializers.h>
 #include <vk_types.h>
 #include <vk_images.h>
 #include <vk_pipelines.h>
+
 
 #define VMA_IMPLEMENTATION
 #include <vma/vk_mem_alloc.h>
@@ -50,10 +55,13 @@ void VulkanEngine::init()
 
     init_pipelines();
 
+    init_dearimgui();
+
     // everything went fine
     _isInitialized = true;
 }
 
+// Output: Instance, Physical Device, Device, Surface, Graphics Queue, Graphics Queue Family, Allocator
 void VulkanEngine::init_vulkan()
 {
     vkb::InstanceBuilder builder;
@@ -101,7 +109,7 @@ void VulkanEngine::init_vulkan()
     vkb::Device vkbDevice = deviceBuilder.build().value();
 
     _device = vkbDevice.device;
-    _chosenGPU = targetDevice.physical_device;
+    _physicalDevice = targetDevice.physical_device;
 
     // graphics queue
     _graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
@@ -111,7 +119,7 @@ void VulkanEngine::init_vulkan()
 
     // VMA
     VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice = _chosenGPU;
+    allocatorInfo.physicalDevice = _physicalDevice;
     allocatorInfo.device = _device;
     allocatorInfo.instance = _instance;
     allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
@@ -121,41 +129,6 @@ void VulkanEngine::init_vulkan()
         vmaDestroyAllocator(_allocator);
         });
 }
-
-
-void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
-{
-    vkb::SwapchainBuilder swapchainBuilder{ _chosenGPU,_device,_surface };
-
-    _swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
-
-    vkb::Swapchain vkbSwapchain = swapchainBuilder
-        //.use_default_format_selection()
-        .set_desired_format(VkSurfaceFormatKHR{ .format = _swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
-        //use vsync present mode
-        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-        .set_desired_extent(width, height)
-        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-        .build()
-        .value();
-
-    _swapchainExtent = vkbSwapchain.extent;
-    //store swapchain and its related images
-    _swapchain = vkbSwapchain.swapchain;
-    _swapchainImages = vkbSwapchain.get_images().value();
-    _swapchainImageViews = vkbSwapchain.get_image_views().value();
-}
-
-void VulkanEngine::destroy_swapchain()
-{
-    vkDestroySwapchainKHR(_device, _swapchain, nullptr);
-
-    // destroy swapchain resources
-    for (int i = 0; i < _swapchainImageViews.size(); i++) {
-        vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
-    }
-}
-
 
 void VulkanEngine::init_swapchain()
 {
@@ -203,8 +176,11 @@ void VulkanEngine::init_commands()
             vkinit::command_buffer_allocate_info(_frames[i]._commandPool);
 
         VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_frames[i]._mainCommandBuffer));
-	}
+    }
+
+
 }
+
 void VulkanEngine::init_sync_structures()
 {
     //create syncronization structures
@@ -255,6 +231,12 @@ void VulkanEngine::init_descriptors()
     drawImageWrite.pImageInfo = &imgInfo;
 
     vkUpdateDescriptorSets(_device, 1, &drawImageWrite, 0, nullptr);
+
+    _mainDeletionQueue.push_function([&]() {
+        globalDescriptorAllocator.destroy_pool(_device);
+        vkDestroyDescriptorSetLayout(_device, _drawImageDescriptorLayout, nullptr);
+        });
+
 }
 
 void VulkanEngine::init_pipelines()
@@ -262,29 +244,141 @@ void VulkanEngine::init_pipelines()
     init_background_pipelines();
 }
 
+void VulkanEngine::init_dearimgui()
+{
+    // DYNAMIC RENDERING (NOT RENDER PASS)
+
+    VkDescriptorPoolSize pool_sizes[] =
+    {
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
+    };
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 1;
+    pool_info.poolSizeCount = (uint32_t)std::size(pool_sizes);
+    pool_info.pPoolSizes = pool_sizes;
+
+    VkDescriptorPool imguiPool;
+    VK_CHECK(vkCreateDescriptorPool(_device, &pool_info, nullptr, &imguiPool));
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
+
+    ImGui::StyleColorsLight();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplSDL2_InitForVulkan(_window);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = _instance;
+    init_info.PhysicalDevice = _physicalDevice;
+    init_info.Device = _device;
+    init_info.QueueFamily = _graphicsQueueFamily;
+    init_info.Queue = _graphicsQueue;
+    //init_info.PipelineCache = YOUR_PIPELINE_CACHE; //optional
+    init_info.DescriptorPool = imguiPool;
+    
+    init_info.Subpass = 0;
+    init_info.MinImageCount = 3;
+    init_info.ImageCount = 3;
+
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    
+
+    //dynamic rendering parameters for imgui to use
+    init_info.UseDynamicRendering = true;
+    init_info.PipelineRenderingCreateInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
+    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &_swapchainImageFormat;
+
+ 
+    ImGui_ImplVulkan_Init(&init_info);
+
+    ImGui_ImplVulkan_CreateFontsTexture();
+    
+    
+    // add the destroy the imgui created structures
+    _mainDeletionQueue.push_function([=]() {
+        ImGui_ImplVulkan_Shutdown();
+        vkDestroyDescriptorPool(_device, imguiPool, nullptr);
+        });
+}
+
+
+void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
+{
+    vkb::SwapchainBuilder swapchainBuilder{ _physicalDevice,_device,_surface };
+
+    _swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
+
+    vkb::Swapchain vkbSwapchain = swapchainBuilder
+        //.use_default_format_selection()
+        .set_desired_format(VkSurfaceFormatKHR{ .format = _swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+        //use vsync present mode
+        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+        .set_desired_extent(width, height)
+        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+        .build()
+        .value();
+
+    _swapchainExtent = vkbSwapchain.extent;
+    //store swapchain and its related images
+    _swapchain = vkbSwapchain.swapchain;
+    _swapchainImages = vkbSwapchain.get_images().value();
+    _swapchainImageViews = vkbSwapchain.get_image_views().value();
+}
+
+void VulkanEngine::destroy_swapchain()
+{
+    vkDestroySwapchainKHR(_device, _swapchain, nullptr);
+
+    // destroy swapchain resources
+    for (int i = 0; i < _swapchainImageViews.size(); i++) {
+        vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
+    }
+}
+
 void VulkanEngine::init_background_pipelines()
 {
+    // Layout
     VkPipelineLayoutCreateInfo computeLayout{};
     computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     computeLayout.pNext = nullptr;
     computeLayout.pSetLayouts = &_drawImageDescriptorLayout;
     computeLayout.setLayoutCount = 1;
 
+    VkPushConstantRange pushConstant{};
+    pushConstant.offset = 0;
+    pushConstant.size = sizeof(ComputePushConstants);
+    pushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    computeLayout.pPushConstantRanges = &pushConstant;
+    computeLayout.pushConstantRangeCount = 1;
+
     VK_CHECK(vkCreatePipelineLayout(_device, &computeLayout, nullptr, &_gradientPipelineLayout));
 
-    VkShaderModule computeDrawShader;
-    if (!vkutil::load_shader_module("shaders/gradient.comp.spv", _device, &computeDrawShader))
-    {
+    // Pipeline
+    VkShaderModule gradientShader;
+    if (!vkutil::load_shader_module("shaders/gradient_color.comp.spv", _device, &gradientShader)) {
+        fmt::print("Error when building the compute shader (gradient_color.comp.spv)\n"); abort();
+    }
+
+    VkShaderModule skyShader;
+    if (!vkutil::load_shader_module("shaders/sky.comp.spv", _device, &skyShader)) {
         fmt::print("Error when building the compute shader \n");
-        abort();
     }
 
     VkPipelineShaderStageCreateInfo stageinfo{};
     stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageinfo.pNext = nullptr;
     stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageinfo.module = computeDrawShader;
-    stageinfo.pName = "main";
+    stageinfo.module = gradientShader;
+    stageinfo.pName = "main"; // entry point in shader
 
     VkComputePipelineCreateInfo computePipelineCreateInfo{};
     computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -292,17 +386,39 @@ void VulkanEngine::init_background_pipelines()
     computePipelineCreateInfo.layout = _gradientPipelineLayout;
     computePipelineCreateInfo.stage = stageinfo;
 
-    VK_CHECK(vkCreateComputePipelines(_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &_gradientPipeline));
+    ComputeEffect gradient;
+    gradient.name = "gradient_color";
+    gradient.layout = _gradientPipelineLayout;
+    gradient._data = {};
+    gradient._data.data1 = glm::vec4(1, 0, 0, 1);
+    gradient._data.data2 = glm::vec4(0, 0, 1, 1);
 
-    vkDestroyShaderModule(_device, computeDrawShader, nullptr);
+    VK_CHECK(vkCreateComputePipelines(_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &gradient.pipeline));
+
+    computePipelineCreateInfo.stage.module = skyShader;
+
+    ComputeEffect sky;
+    sky.layout = _gradientPipelineLayout;
+    sky.name = "sky";
+    sky._data = {};
+    //default sky parameters
+    sky._data.data1 = glm::vec4(0.1, 0.2, 0.4, 0.97);
+
+    VK_CHECK(vkCreateComputePipelines(_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &sky.pipeline));
+
+
+    backgroundEffects = { gradient, sky };
+
+    // Cleanup
+    vkDestroyShaderModule(_device, gradientShader, nullptr); 
+    vkDestroyShaderModule(_device, skyShader, nullptr); 
 
     _mainDeletionQueue.push_function([&]() {
         vkDestroyPipelineLayout(_device, _gradientPipelineLayout, nullptr);
-        vkDestroyPipeline(_device, _gradientPipeline, nullptr);
+        vkDestroyPipeline(_device, sky.pipeline, nullptr);
+        vkDestroyPipeline(_device, gradient.pipeline, nullptr);
         });
-
 }
-
 
 // Creation Order (cleaned up in opposite order)
 // Window -> Vulkan Instance -> SDL Surface -> Physical Device -> Device -> Swapchain -> Command Pool -> Command Buffer
@@ -342,24 +458,30 @@ void VulkanEngine::cleanup()
 
 void VulkanEngine::draw_background(VkCommandBuffer cmd)
 {
-    ////make a clear-color from frame number. This will flash with a 120 frame period.
-    //VkClearColorValue clearValue;
-    //float flash = std::abs(std::sin(_frameNumber / 120.f));
-    //clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
+    ComputeEffect& selected = backgroundEffects[currentBackgroundEffect];
 
-    //VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+    // Bind Pipeline
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, selected.pipeline);
 
-    ////clear image
-    //vkCmdClearColorImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
-    // bind the gradient drawing compute pipeline
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipeline);
+    // Push Constants
+    vkCmdPushConstants(cmd, _gradientPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &selected._data);
 
-    // bind the descriptor set containing the draw image for the compute pipeline
+    // Bind Descriptor Set
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipelineLayout, 0, 1, &_drawImageDescriptors, 0, nullptr);
+    // Execute at 8x8 thread groups
+    vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 8.0), std::ceil(_drawExtent.height / 8.0), 1);
+}
 
-    // execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
-    vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
+void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView)
+{
+    VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingInfo renderInfo = vkinit::rendering_info(_swapchainExtent, &colorAttachment, nullptr);
 
+    vkCmdBeginRendering(cmd, &renderInfo);
+
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+
+    vkCmdEndRendering(cmd);
 }
 
 
@@ -378,51 +500,28 @@ void VulkanEngine::draw()
     VkCommandBuffer cmd = get_current_frame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
     VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
-
-#pragma region Old Command Buffer
-    /*
-    // Start Command Buffer Recording
-
-    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
-
-
-    //vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-    vkutil::transition_image_optimized_one(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
-    // Clear Color
-    VkClearColorValue clearValue;
-    float flash = std::abs(std::sin(_frameNumber / 120.f));
-    clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
-    VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
-    //vkCmdClearColorImage(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
-    vkCmdClearColorImage(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearValue, 1, &clearRange);
-
-    //vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-    vkutil::transition_image_optimized_two(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
-    // End Command Buffer Recording
-    VK_CHECK(vkEndCommandBuffer(cmd));
-    */
-#pragma endregion
+                 
 
     _drawExtent.width = _drawImage.imageExtent.width;
     _drawExtent.height = _drawImage.imageExtent.height;
 
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
     
+    // draw background onto _drawImage
     vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL); 
-
-    // draws directly to the draw image
     draw_background(cmd);
 
+    // copy _drawImage onto _swapchainImage
     vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL); 
-    vkutil::transition_image_optimized_one(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
-    // copy from draw image to swapchain image
+    vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     vkutil::copy_image_to_image(cmd, _drawImage.image, _swapchainImages[swapchainImageIndex], _drawExtent, _swapchainExtent);
 
-    // set swapchain image layout to Present so we can show it on the screen
-    vkutil::transition_image_optimized_two(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    // Draw imgui onto _swapchainImage (directly)
+    vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    draw_imgui(cmd, _swapchainImageViews[swapchainImageIndex]);
+
+    // transition to present 
+    vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -465,13 +564,7 @@ void VulkanEngine::run()
     while (!bQuit) {
         // Handle events on queue
         while (SDL_PollEvent(&e) != 0) {
-            // close the window when user alt-f4s or clicks the X button
-            if (e.type == SDL_QUIT)
-                bQuit = true;
-            if (e.type == SDL_KEYDOWN) {
-				if (e.key.keysym.sym == SDLK_ESCAPE)
-					bQuit = true;
-			}
+            if (e.type == SDL_QUIT || (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)) { bQuit = true; }
 
             if (e.type == SDL_WINDOWEVENT) {
                 if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
@@ -481,7 +574,11 @@ void VulkanEngine::run()
                     stop_rendering = false;
                 }
             }
+
+            // imgui input handling
+            ImGui_ImplSDL2_ProcessEvent(&e);
         }
+
 
         // do not draw if we are minimized
         if (stop_rendering) {
@@ -489,6 +586,31 @@ void VulkanEngine::run()
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
+
+        // imgui new frame
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+
+        //some imgui UI to test
+        //ImGui::ShowDemoWindow();
+        ImGui::NewFrame();
+
+        if (ImGui::Begin("background")) {
+
+            ComputeEffect& selected = backgroundEffects[currentBackgroundEffect];
+
+            ImGui::Text("Selected effect: ", selected.name);
+
+            ImGui::SliderInt("Effect Index", &currentBackgroundEffect, 0, backgroundEffects.size() - 1);
+
+            ImGui::InputFloat4("data1", (float*)&selected._data.data1);
+            ImGui::InputFloat4("data2", (float*)&selected._data.data2);
+            ImGui::InputFloat4("data3", (float*)&selected._data.data3);
+            ImGui::InputFloat4("data4", (float*)&selected._data.data4);
+
+            ImGui::End();
+        }
+        ImGui::Render();
 
         draw();
     }

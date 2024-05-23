@@ -28,6 +28,9 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{2887c6a3-f5ac-4cc1-94e0-3334a67f600f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\imgui">
+      <UniqueIdentifier>{b38c5f05-cd98-4c66-b81d-3096d6ed1299}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\libraryTests.cpp">
@@ -90,6 +93,12 @@
     <ClCompile Include="include\vkbootstrap\VkBootstrap.cpp">
       <Filter>Source Files\vkbootstrap</Filter>
     </ClCompile>
+    <ClCompile Include="include\imgui\backends\imgui_impl_vulkan.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imgui\backends\imgui_impl_sdl2.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\libraryTests.h">
@@ -125,12 +134,36 @@
     <ClInclude Include="include\vk_descriptors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\imgui\imstb_textedit.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imstb_truetype.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imconfig.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imgui.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imgui_internal.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imstb_rectpack.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\gradient.comp">
       <Filter>Shaders</Filter>
     </None>
     <None Include="compile_shaders.sh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\gradient_color.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\sky.comp">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
