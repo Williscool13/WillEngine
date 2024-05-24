@@ -22,6 +22,13 @@
 
 #include <vkbootstrap/VkBootstrap.h>
 
+#ifdef NDEBUG
+#define useValidationLayers false
+#else
+#define useValidationLayers true
+#endif
+
+
 bool bUseValidationLayers = true;
 
 VulkanEngine* loadedEngine = nullptr;
@@ -132,7 +139,25 @@ void VulkanEngine::init_vulkan()
 
 void VulkanEngine::init_swapchain()
 {
-    create_swapchain(_windowExtent.width, _windowExtent.height);
+    vkb::SwapchainBuilder swapchainBuilder{ _physicalDevice,_device,_surface };
+
+    _swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
+
+    vkb::Swapchain vkbSwapchain = swapchainBuilder
+        //.use_default_format_selection()
+        .set_desired_format(VkSurfaceFormatKHR{ .format = _swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+        //use vsync present mode
+        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+        .set_desired_extent(_windowExtent.width, _windowExtent.height)
+        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+        .build()
+        .value();
+
+    _swapchainExtent = vkbSwapchain.extent;
+    //store swapchain and its related images
+    _swapchain = vkbSwapchain.swapchain;
+    _swapchainImages = vkbSwapchain.get_images().value();
+    _swapchainImageViews = vkbSwapchain.get_image_views().value();
 
     // 64 bit float format
     VkExtent3D drawImageExtent = { _windowExtent.width, _windowExtent.height, 1 };
@@ -214,7 +239,7 @@ void VulkanEngine::init_descriptors()
     }
 
     // Allocate 1 set w/ specified layout
-    _drawImageDescriptors = globalDescriptorAllocator.allocate(_device, _drawImageDescriptorLayout);
+    _drawImageDescriptorSet = globalDescriptorAllocator.allocate(_device, _drawImageDescriptorLayout);
 
     VkDescriptorImageInfo imgInfo{};
     imgInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -225,7 +250,7 @@ void VulkanEngine::init_descriptors()
     drawImageWrite.pNext = nullptr;
 
     drawImageWrite.dstBinding = 0;
-    drawImageWrite.dstSet = _drawImageDescriptors;
+    drawImageWrite.dstSet = _drawImageDescriptorSet;
     drawImageWrite.descriptorCount = 1;
     drawImageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     drawImageWrite.pImageInfo = &imgInfo;
@@ -309,40 +334,6 @@ void VulkanEngine::init_dearimgui()
         });
 }
 
-
-void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
-{
-    vkb::SwapchainBuilder swapchainBuilder{ _physicalDevice,_device,_surface };
-
-    _swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
-
-    vkb::Swapchain vkbSwapchain = swapchainBuilder
-        //.use_default_format_selection()
-        .set_desired_format(VkSurfaceFormatKHR{ .format = _swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
-        //use vsync present mode
-        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-        .set_desired_extent(width, height)
-        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-        .build()
-        .value();
-
-    _swapchainExtent = vkbSwapchain.extent;
-    //store swapchain and its related images
-    _swapchain = vkbSwapchain.swapchain;
-    _swapchainImages = vkbSwapchain.get_images().value();
-    _swapchainImageViews = vkbSwapchain.get_image_views().value();
-}
-
-void VulkanEngine::destroy_swapchain()
-{
-    vkDestroySwapchainKHR(_device, _swapchain, nullptr);
-
-    // destroy swapchain resources
-    for (int i = 0; i < _swapchainImageViews.size(); i++) {
-        vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
-    }
-}
-
 void VulkanEngine::init_background_pipelines()
 {
     // Layout
@@ -413,7 +404,7 @@ void VulkanEngine::init_background_pipelines()
     vkDestroyShaderModule(_device, gradientShader, nullptr); 
     vkDestroyShaderModule(_device, skyShader, nullptr); 
 
-    _mainDeletionQueue.push_function([&]() {
+    _mainDeletionQueue.push_function([=]() {
         vkDestroyPipelineLayout(_device, _gradientPipelineLayout, nullptr);
         vkDestroyPipeline(_device, sky.pipeline, nullptr);
         vkDestroyPipeline(_device, gradient.pipeline, nullptr);
@@ -422,8 +413,8 @@ void VulkanEngine::init_background_pipelines()
 
 // Creation Order (cleaned up in opposite order)
 // Window -> Vulkan Instance -> SDL Surface -> Physical Device -> Device -> Swapchain -> Command Pool -> Command Buffer
-//    cant delete physical device, because its just a handle to the GPU
-//    cant individually destroy command buffers, deleting command pool deletes all associated command buffers
+//    cant delete physical device, because its just a handle to the GPU - Implicitly destroyed when the instance is destroyed
+//    cant individually destroy command buffers, deleting command pool deletes all allocated command buffers by that pool
 void VulkanEngine::cleanup()
 {
     if (_isInitialized) {
@@ -441,7 +432,11 @@ void VulkanEngine::cleanup()
             vkDestroySemaphore(_device, _frames[i]._swapchainSemaphore, nullptr);
 		}
 
-        destroy_swapchain();
+        vkDestroySwapchainKHR(_device, _swapchain, nullptr);
+        // destroy swapchain resources
+        for (int i = 0; i < _swapchainImageViews.size(); i++) {
+            vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
+        }
 
         vkDestroySurfaceKHR(_instance, _surface, nullptr);
         vkDestroyDevice(_device, nullptr);
@@ -459,17 +454,14 @@ void VulkanEngine::cleanup()
 void VulkanEngine::draw_background(VkCommandBuffer cmd)
 {
     ComputeEffect& selected = backgroundEffects[currentBackgroundEffect];
-
     // Bind Pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, selected.pipeline);
-
     // Push Constants
     vkCmdPushConstants(cmd, _gradientPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &selected._data);
-
     // Bind Descriptor Set
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipelineLayout, 0, 1, &_drawImageDescriptors, 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipelineLayout, 0, 1, &_drawImageDescriptorSet, 0, nullptr);
     // Execute at 8x8 thread groups
-    vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 8.0), std::ceil(_drawExtent.height / 8.0), 1);
+    vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 8.0), std::ceil(_drawExtent.height / 8.0), 1); 
 }
 
 void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -491,11 +483,11 @@ void VulkanEngine::draw()
     VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
     get_current_frame()._deletionQueue.flush();
     VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._renderFence));
-
+       
     // GPU -> GPU sync (semaphore)
     uint32_t swapchainImageIndex;
     VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, get_current_frame()._swapchainSemaphore, nullptr, &swapchainImageIndex));
-
+     
 
     VkCommandBuffer cmd = get_current_frame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));

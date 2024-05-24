@@ -75,6 +75,8 @@ VkDescriptorSet DescriptorAllocator::allocate(VkDevice device, VkDescriptorSetLa
     allocInfo.pSetLayouts = &layout;
 
     VkDescriptorSet ds;
+    
+
     VK_CHECK(vkAllocateDescriptorSets(device, &allocInfo, &ds));
 
     return ds;

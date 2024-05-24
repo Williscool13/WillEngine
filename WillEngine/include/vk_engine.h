@@ -100,7 +100,7 @@ public:
 
 	// Descriptor, Layout, Allocator
 	DescriptorAllocator globalDescriptorAllocator;
-	VkDescriptorSet _drawImageDescriptors;
+	VkDescriptorSet _drawImageDescriptorSet;
 	VkDescriptorSetLayout _drawImageDescriptorLayout;
 
 	// Pipelines
@@ -130,10 +130,6 @@ private:
 	// calls all other pipeline init functions
 	void init_pipelines();
 	void init_background_pipelines();
-
-
-	void create_swapchain(uint32_t width, uint32_t height);
-	void destroy_swapchain();
 };
 
 

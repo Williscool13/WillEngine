@@ -45,10 +45,9 @@ void main()
             color = vec4(ray_color(ray_direction), 1.0);
 
         }
-        
-        
-        
-        
-        imageStore(image, texelCoord, color);
+
+
+
+        //imageStore(image, texelCoord, color);
     }
 }
