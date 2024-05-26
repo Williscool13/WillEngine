@@ -48,6 +48,6 @@ void main()
 
 
 
-        //imageStore(image, texelCoord, color);
+        imageStore(image, texelCoord, color);
     }
 }

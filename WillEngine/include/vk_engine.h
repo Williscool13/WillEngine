@@ -5,6 +5,7 @@
 
 #include <vk_types.h>
 #include <vk_descriptors.h>
+#include <vk_loader.h>
 
 struct DeletionQueue
 {
@@ -81,6 +82,7 @@ public:
 
 	//draw resources
 	AllocatedImage _drawImage;
+	AllocatedImage _depthImage;
 	VkExtent2D _drawExtent;
 
 
@@ -103,33 +105,58 @@ public:
 	VkDescriptorSet _drawImageDescriptorSet;
 	VkDescriptorSetLayout _drawImageDescriptorLayout;
 
-	// Pipelines
-	VkPipeline _gradientPipeline; // background
-	VkPipelineLayout _gradientPipelineLayout;
 
-	// Select between 2 background effects
+	// 2 Background Effects
+	VkPipelineLayout _backgroundEffectPipelineLayout;
 	std::vector<ComputeEffect> backgroundEffects;
 	int currentBackgroundEffect{ 0 };
+
+	// Triangle
+	VkPipelineLayout _trianglePipelineLayout;
+	VkPipeline _trianglePipeline;
+
+	// Mesh
+	VkPipelineLayout _meshPipelineLayout;
+	VkPipeline _meshPipeline;
+	GPUMeshBuffers rectangle;
+
+	std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 
 
 	void init();
 	void cleanup();
 	void draw_background(VkCommandBuffer cmd);
+	void draw_mesh(VkCommandBuffer cmd);
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	void draw();
 	void run();
 
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
+
+	void destroy_buffer(const AllocatedBuffer& buffer);
+
+
+	// immediate submit structures
+	VkFence _immFence;
+	VkCommandBuffer _immCommandBuffer;
+	VkCommandPool _immCommandPool;
+	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+
 private:
 	void init_vulkan();
-	void init_dearimgui();
 	void init_swapchain();
 	void init_commands();
 	void init_sync_structures();
 	void init_descriptors();
+	void init_dearimgui();
 
-	// calls all other pipeline init functions
 	void init_pipelines();
-	void init_background_pipelines();
+	void init_compute_pipelines();
+	void init_triangle_pipeline();
+	void init_mesh_pipeline();
+
+	void init_default_data();
 };
 
 

@@ -166,5 +166,14 @@
     <None Include="shaders\sky.comp">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shaders\colored_triangle.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\colored_triangle.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\colored_triangle_mesh.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
