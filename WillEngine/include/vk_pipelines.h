@@ -8,6 +8,12 @@ namespace vkutil {
 
 class PipelineBuilder {
 public:
+    enum class BlendMode {
+        ALPHA_BLEND,
+        ADDITIVE_BLEND,
+        NO_BLEND
+    };
+
     std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
 
     VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
@@ -24,7 +30,7 @@ public:
 
     void clear();
 
-    VkPipeline build_pipeline(VkDevice device);
+    VkPipeline build_pipeline(VkDevice device, VkPipelineCreateFlagBits flags);
     void set_shaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
 
     void setup_input_assembly(VkPrimitiveTopology topology);
@@ -32,7 +38,6 @@ public:
     void setup_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
                             , float minSampleShading, const VkSampleMask* pSampleMask
 							, VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
-    void setup_blending(VkColorComponentFlags colorWriteMask, VkBool32 blendEnable);
     void setup_renderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat);
     void setup_depth_stencil(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
                             , VkBool32 depthBoundsTestEnable, VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back
@@ -40,11 +45,15 @@ public:
 
     void enable_depthtest(bool depthWriteEnable, VkCompareOp op);
 
+    void setup_blending(PipelineBuilder::BlendMode mode);
+   
+
+
     void disable_multisampling();
-    void disable_blending();
     void disable_depthtest();
 
     VkPipelineDynamicStateCreateInfo generate_dynamic_states(VkDynamicState states[], uint32_t count);
 
 
 };
+

@@ -62,6 +62,8 @@ public:
 	bool _isInitialized{ false };
 	int _frameNumber {0};
 	bool stop_rendering{ false };
+	bool resize_requested{ false };
+
 	VkExtent2D _windowExtent{ 1700 , 900 };
 
 	struct SDL_Window* _window{ nullptr };
@@ -74,6 +76,8 @@ public:
 	VkDevice _device;
 	VkSurfaceKHR _surface;
 
+	VkDevice _oldDevice;
+
 	// Global Lifetime Deletion Queue
 	DeletionQueue _mainDeletionQueue;
 
@@ -85,11 +89,13 @@ public:
 	AllocatedImage _depthImage;
 	VkExtent2D _drawExtent;
 
+	// Render Scale
+	float _renderScale{ 1.0f };
+	float _maxRenderScale{ 1.0f };
 
 	// Swapchain
 	VkSwapchainKHR _swapchain;
 	VkFormat _swapchainImageFormat;
-
 	std::vector<VkImage> _swapchainImages;
 	std::vector<VkImageView> _swapchainImageViews;
 	VkExtent2D _swapchainExtent;
@@ -106,16 +112,12 @@ public:
 	VkDescriptorSetLayout _drawImageDescriptorLayout;
 
 
-	// 2 Background Effects
+	// Background (Compute)
 	VkPipelineLayout _backgroundEffectPipelineLayout;
 	std::vector<ComputeEffect> backgroundEffects;
 	int currentBackgroundEffect{ 0 };
 
-	// Triangle
-	VkPipelineLayout _trianglePipelineLayout;
-	VkPipeline _trianglePipeline;
-
-	// Mesh
+	// Mesh (Graphics)
 	VkPipelineLayout _meshPipelineLayout;
 	VkPipeline _meshPipeline;
 	GPUMeshBuffers rectangle;
@@ -131,6 +133,8 @@ public:
 	void draw();
 	void run();
 
+	void resize_swapchain();
+
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 
@@ -143,6 +147,27 @@ public:
 	VkCommandPool _immCommandPool;
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
+	// Descriptor Buffer vars
+	AllocatedBuffer descriptorBufferAllocatedBuffer;
+	VkDescriptorSetLayout descriptorBufferSetLayout;
+
+	
+	DescriptorAllocator textureDescriptorAllocator;
+	VkDescriptorSet textureDescriptorSet;
+	VkDescriptorSetLayout textureDescriptorSetLayout;
+
+	// Textures
+	AllocatedImage _whiteImage;
+	AllocatedImage _blackImage;
+	AllocatedImage _greyImage;
+	AllocatedImage _errorCheckerboardImage;
+	VkSampler _defaultSamplerLinear;
+	VkSampler _defaultSamplerNearest;
+	AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	void destroy_image(const AllocatedImage& img);
+
+
 private:
 	void init_vulkan();
 	void init_swapchain();
@@ -150,13 +175,16 @@ private:
 	void init_sync_structures();
 	void init_descriptors();
 	void init_dearimgui();
+	void init_descriptor_buffer();
 
 	void init_pipelines();
 	void init_compute_pipelines();
-	void init_triangle_pipeline();
 	void init_mesh_pipeline();
 
-	void init_default_data();
+	void init_data();
+
+	void create_swapchain(uint32_t width, uint32_t height);
+	void destroy_swapchain();
 };
 
 

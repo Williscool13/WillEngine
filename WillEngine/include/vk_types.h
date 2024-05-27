@@ -12,14 +12,15 @@
 #include <deque>
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vma/vk_mem_alloc.h>
 
 #include <fmt/core.h>
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE 
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 
 struct AllocatedImage {
     VkImage image;

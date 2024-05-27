@@ -1,0 +1,11 @@
+Model Information:
+* title:	Boris Spassky Vs Robert James Fischer Game 3
+* source:	https://sketchfab.com/3d-models/boris-spassky-vs-robert-james-fischer-game-3-6df15d938f184b87af96fbf7a793248e
+* author:	Anthony Yanez (https://sketchfab.com/paulyanez)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Boris Spassky Vs Robert James Fischer Game 3" (https://sketchfab.com/3d-models/boris-spassky-vs-robert-james-fischer-game-3-6df15d938f184b87af96fbf7a793248e) by Anthony Yanez (https://sketchfab.com/paulyanez) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

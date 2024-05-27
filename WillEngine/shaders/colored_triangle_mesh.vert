@@ -17,6 +17,7 @@ layout(buffer_reference, std430) readonly buffer VertexBuffer{
 	Vertex vertices[];
 };
 
+
 //push constants block
 layout( push_constant ) uniform constants
 {	
