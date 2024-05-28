@@ -837,7 +837,6 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	float rot = r / (1000.0f * rotTime) * 360.0f;
 	model = glm::rotate(model, glm::radians(rot), glm::vec3(0, 1, 0));
 	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 5.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-	glm::mat4 proj = glm::perspective(glm::radians(70.0f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.0f, 0.1f);
 
 	// sceneData def
 	GPUSceneData sceneData;
