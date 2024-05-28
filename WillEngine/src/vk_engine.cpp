@@ -8,16 +8,19 @@
 #include <imgui/backends/imgui_impl_sdl2.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 
+#define VMA_IMPLEMENTATION
+#include <vma/vk_mem_alloc.h>
+
 #include <vk_initializers.h>
 #include <vk_types.h>
 #include <vk_images.h>
 #include <vk_pipelines.h>
+#include <vk_descriptor_buffer.h>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 
-#define VMA_IMPLEMENTATION
-#include <vma/vk_mem_alloc.h>
+
 
 #include <chrono>
 #include <thread>
@@ -410,118 +413,37 @@ void VulkanEngine::init_dearimgui()
 
 void VulkanEngine::init_descriptor_buffer()
 {
-#pragma region Descriptor Buffer
-	PFN_vkGetDescriptorSetLayoutSizeEXT vkGetDescriptorSetLayoutSizeEXT =
-		(PFN_vkGetDescriptorSetLayoutSizeEXT)vkGetInstanceProcAddr(_instance, "vkGetDescriptorSetLayoutSizeEXT");
-	PFN_vkGetDescriptorSetLayoutBindingOffsetEXT vkGetDescriptorSetLayoutBindingOffsetEXT =
-		(PFN_vkGetDescriptorSetLayoutBindingOffsetEXT)vkGetInstanceProcAddr(_instance, "vkGetDescriptorSetLayoutBindingOffsetEXT");
-	PFN_vkGetDescriptorEXT vkGetDescriptorEXT =
-		(PFN_vkGetDescriptorEXT)vkGetDeviceProcAddr(_device, "vkGetDescriptorEXT");
-
 	{
 		DescriptorLayoutBuilder builder;
-		builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		builder.add_binding(0, VK_DESCRIPTOR_TYPE_SAMPLER);
+		builder.add_binding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
 		descriptorBufferSetLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT
 			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 	}
 	
-	// Getting buffer size and offset
-	VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptor_buffer_properties{};
-	VkPhysicalDeviceProperties2KHR device_properties{};
-	descriptor_buffer_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;
-	device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
-	device_properties.pNext = &descriptor_buffer_properties;
-	vkGetPhysicalDeviceProperties2(_physicalDevice, &device_properties);
-	VkDeviceSize descriptor_buffer_size;
-	VkDeviceSize descriptor_buffer_offset;
-	vkGetDescriptorSetLayoutSizeEXT(_device, descriptorBufferSetLayout, &descriptor_buffer_size);
-	descriptor_buffer_size = aligned_size(descriptor_buffer_size, descriptor_buffer_properties.descriptorBufferOffsetAlignment);
-	vkGetDescriptorSetLayoutBindingOffsetEXT(_device, descriptorBufferSetLayout, 0u, &descriptor_buffer_offset);
+	VkDescriptorImageInfo sampler_descriptor{};
+	sampler_descriptor.sampler = _defaultSamplerNearest;
 
+	VkDescriptorImageInfo sampled_image_descriptor{};
+	sampled_image_descriptor.imageView = _errorCheckerboardImage.imageView;
+	sampled_image_descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	// Creating and Allocating buffer
-	VkBufferCreateInfo bufferInfo = { .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-	bufferInfo.pNext = nullptr;
-	bufferInfo.size = descriptor_buffer_size;
-	bufferInfo.usage =
-		VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
-		| VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT
-		| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-	VmaAllocationCreateInfo vmaAllocInfo = {};
-	vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-	VK_CHECK(vmaCreateBuffer(_allocator, &bufferInfo, &vmaAllocInfo
-		, &descriptorBufferAllocatedBuffer.buffer, &descriptorBufferAllocatedBuffer.allocation, &descriptorBufferAllocatedBuffer.info));
-
-	// putting the descriptors into the buffer
-	void* buffer_ptr;
-	vmaMapMemory(_allocator, descriptorBufferAllocatedBuffer.allocation, &buffer_ptr);
-	VkDescriptorImageInfo image_descriptor{};
-	image_descriptor.sampler = _defaultSamplerLinear;
-	image_descriptor.imageView = _errorCheckerboardImage.imageView;
-	image_descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	VkDescriptorGetInfoEXT image_descriptor_info = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT };
-
-	image_descriptor_info.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	image_descriptor_info.data.pCombinedImageSampler = &image_descriptor;
-	size_t descriptor_size = descriptor_buffer_properties.combinedImageSamplerDescriptorSize;
-	void* descriptor_write_ptr = static_cast<uint8_t*>(buffer_ptr) + descriptor_buffer_offset;
-
-
-	vkGetDescriptorEXT(
-		_device,
-		&image_descriptor_info,
-		descriptor_size,
-		descriptor_write_ptr
-	);
-
-	_mainDeletionQueue.push_function([=]() {
-		vmaUnmapMemory(_allocator, descriptorBufferAllocatedBuffer.allocation);
-		vkDestroyDescriptorSetLayout(_device, descriptorBufferSetLayout, nullptr);
-		vmaDestroyBuffer(_allocator, descriptorBufferAllocatedBuffer.buffer, descriptorBufferAllocatedBuffer.allocation);
-	});
-
-	fmt::print("Finished setting up descriptor buffer\n");
-
-#pragma endregion
-
-#pragma region Traditional Descriptor Set
-	/*std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 }
+	// needs to match the order of the bindings in the layout
+	std::vector<std::pair<VkDescriptorType, VkDescriptorImageInfo>> combined_descriptor = {
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, sampler_descriptor },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sampled_image_descriptor }
 	};
-	textureDescriptorAllocator.init_pool(_device, 1, sizes);
+	
 
-	{
-		DescriptorLayoutBuilder builder;
-		builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		textureDescriptorSetLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT);
-	}
-
-	textureDescriptorSet = textureDescriptorAllocator.allocate(_device, textureDescriptorSetLayout);
-
-
-	VkDescriptorImageInfo textureInfo{};
-	textureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	textureInfo.imageView = _errorCheckerboardImage.imageView;
-	textureInfo.sampler = _defaultSamplerNearest;
-
-	VkWriteDescriptorSet textureDescriptorWrite = {};
-	textureDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	textureDescriptorWrite.pNext = nullptr;
-
-	textureDescriptorWrite.dstBinding = 0;
-	textureDescriptorWrite.dstSet = textureDescriptorSet;
-	textureDescriptorWrite.descriptorCount = 1;
-	textureDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	textureDescriptorWrite.pImageInfo = &textureInfo;
-
-	vkUpdateDescriptorSets(_device, 1, &textureDescriptorWrite, 0, nullptr);
+	textureDescriptorBuffer.init(_instance, _device, _physicalDevice);
+	textureDescriptorBuffer.setup_descriptor_set_layout(_device, descriptorBufferSetLayout);
+	textureDescriptorBuffer.prepare_buffer(_allocator);
+	textureDescriptorBuffer.setup_data(_device, combined_descriptor);
+	//textureDescriptorBuffer.setup_data(_device, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, combined_descriptor1);
 
 	_mainDeletionQueue.push_function([&]() {
-		textureDescriptorAllocator.destroy_pool(_device);
-		vkDestroyDescriptorSetLayout(_device, textureDescriptorSetLayout, nullptr);
-		});*/
-#pragma endregion
-
+		textureDescriptorBuffer.destroy(_device, _allocator);
+	});
 }
 
 void VulkanEngine::init_compute_pipelines()
@@ -840,38 +762,12 @@ void VulkanEngine::draw_mesh(VkCommandBuffer cmd)
 	glm::mat4 proj = glm::perspective(glm::radians(70.0f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.0f, 0.1f);
 
 	push_constants.worldMatrix = proj * view * model;
-	//push_constants.worldMatrix = proj * view * model;
 
 	constexpr int targetMesh = 2;
 
 
-	PFN_vkCmdBindDescriptorBuffersEXT vkCmdBindDescriptorBuffersEXT =
-		(PFN_vkCmdBindDescriptorBuffersEXT)vkGetDeviceProcAddr(_device, "vkCmdBindDescriptorBuffersEXT");
-	PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT =
-		(PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetDeviceProcAddr(_device, "vkCmdSetDescriptorBufferOffsetsEXT");
 
-	VkBufferDeviceAddressInfoKHR buffer_device_address_info{};
-	buffer_device_address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-	buffer_device_address_info.buffer = descriptorBufferAllocatedBuffer.buffer;
-	VkDeviceAddress a = vkGetBufferDeviceAddress(_device, &buffer_device_address_info);
-	// Bindings
-	VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{};
-	descriptor_buffer_binding_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
-	descriptor_buffer_binding_info.address = a; 
-	descriptor_buffer_binding_info.usage
-		= VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
-	vkCmdBindDescriptorBuffersEXT(cmd, 1, &descriptor_buffer_binding_info);
-	// offset might not be necessary if only 1 descriptor set
-	uint32_t     buffer_index_image = 0;
-	VkDeviceSize buffer_offset = 0;
-	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout
-		, 0, 1, &buffer_index_image, &buffer_offset);
-
-
-	//vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout, 0, 1, &textureDescriptorSet, 0, nullptr);
-
-
-
+	textureDescriptorBuffer.bind(cmd, _device, _meshPipelineLayout);
 
 	push_constants.vertexBuffer = testMeshes[targetMesh]->meshBuffers.vertexBufferAddress;
 	vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);

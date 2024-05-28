@@ -6,6 +6,7 @@
 #include <vk_types.h>
 #include <vk_descriptors.h>
 #include <vk_loader.h>
+#include <vk_descriptor_buffer.h>
 
 struct DeletionQueue
 {
@@ -148,14 +149,11 @@ public:
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
 	// Descriptor Buffer vars
+	DescriptorBufferSampler textureDescriptorBuffer;
 	AllocatedBuffer descriptorBufferAllocatedBuffer;
 	VkDescriptorSetLayout descriptorBufferSetLayout;
 
 	
-	DescriptorAllocator textureDescriptorAllocator;
-	VkDescriptorSet textureDescriptorSet;
-	VkDescriptorSetLayout textureDescriptorSetLayout;
-
 	// Textures
 	AllocatedImage _whiteImage;
 	AllocatedImage _blackImage;

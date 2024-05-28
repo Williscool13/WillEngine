@@ -99,6 +99,9 @@
     <ClCompile Include="include\imgui\backends\imgui_impl_sdl2.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="src\vk_descriptor_buffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\libraryTests.h">
@@ -152,7 +155,7 @@
     <ClInclude Include="include\imgui\imstb_rectpack.h">
       <Filter>Header Files\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="vk_descriptor_buffer.h">
+    <ClInclude Include="include\vk_descriptor_buffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
