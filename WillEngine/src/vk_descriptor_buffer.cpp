@@ -1,20 +1,41 @@
 #include "vk_descriptor_buffer.h"
 
-DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout)
+
+VkPhysicalDeviceDescriptorBufferPropertiesEXT DescriptorBuffer::descriptor_buffer_properties = {};
+PFN_vkGetDescriptorSetLayoutSizeEXT DescriptorBuffer::vkGetDescriptorSetLayoutSizeEXT = nullptr;
+PFN_vkGetDescriptorSetLayoutBindingOffsetEXT DescriptorBuffer::vkGetDescriptorSetLayoutBindingOffsetEXT = nullptr;
+PFN_vkCmdBindDescriptorBuffersEXT DescriptorBuffer::vkCmdBindDescriptorBuffersEXT = nullptr;
+PFN_vkCmdSetDescriptorBufferOffsetsEXT DescriptorBuffer::vkCmdSetDescriptorBufferOffsetsEXT = nullptr;
+PFN_vkGetDescriptorEXT DescriptorBuffer::vkGetDescriptorEXT = nullptr;
+bool DescriptorBuffer::device_properties_retrieved = false;
+bool DescriptorBuffer::extension_functions_defined = false;
+
+DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device
+	, VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout)
 {
 	// Get Descriptor Buffer Properties
-	VkPhysicalDeviceProperties2KHR device_properties{};
-	descriptor_buffer_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;
-	device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
-	device_properties.pNext = &descriptor_buffer_properties;
-	vkGetPhysicalDeviceProperties2(physicalDevice, &device_properties);
+	if (!device_properties_retrieved) {
+		fmt::print("Retrieving Descriptor Buffer Properties\n");
+		VkPhysicalDeviceProperties2KHR device_properties{};
+		descriptor_buffer_properties = {};
+		descriptor_buffer_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;
+		device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
+		device_properties.pNext = &descriptor_buffer_properties;
+		vkGetPhysicalDeviceProperties2(physicalDevice, &device_properties);
+		device_properties_retrieved = true;
+	}
+
 
 	// Define Extension Functions
-	vkGetDescriptorSetLayoutSizeEXT = (PFN_vkGetDescriptorSetLayoutSizeEXT)vkGetInstanceProcAddr(instance, "vkGetDescriptorSetLayoutSizeEXT");
-	vkGetDescriptorSetLayoutBindingOffsetEXT = (PFN_vkGetDescriptorSetLayoutBindingOffsetEXT)vkGetInstanceProcAddr(instance, "vkGetDescriptorSetLayoutBindingOffsetEXT");
-	vkCmdBindDescriptorBuffersEXT = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetDeviceProcAddr(device, "vkCmdBindDescriptorBuffersEXT");
-	vkCmdSetDescriptorBufferOffsetsEXT = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetDeviceProcAddr(device, "vkCmdSetDescriptorBufferOffsetsEXT");
-	vkGetDescriptorEXT = (PFN_vkGetDescriptorEXT)vkGetDeviceProcAddr(device, "vkGetDescriptorEXT");
+	if (!extension_functions_defined) {
+		fmt::print("Retrieving Extension Functions\n");
+		vkGetDescriptorSetLayoutSizeEXT = (PFN_vkGetDescriptorSetLayoutSizeEXT)vkGetInstanceProcAddr(instance, "vkGetDescriptorSetLayoutSizeEXT");
+		vkGetDescriptorSetLayoutBindingOffsetEXT = (PFN_vkGetDescriptorSetLayoutBindingOffsetEXT)vkGetInstanceProcAddr(instance, "vkGetDescriptorSetLayoutBindingOffsetEXT");
+		vkCmdBindDescriptorBuffersEXT = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetDeviceProcAddr(device, "vkCmdBindDescriptorBuffersEXT");
+		vkCmdSetDescriptorBufferOffsetsEXT = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetDeviceProcAddr(device, "vkCmdSetDescriptorBufferOffsetsEXT");
+		vkGetDescriptorEXT = (PFN_vkGetDescriptorEXT)vkGetDeviceProcAddr(device, "vkGetDescriptorEXT");
+		extension_functions_defined = true;
+	}
 
 	// Descriptor Set Layout
 	this->descriptor_set_layout = descriptorSetLayout;
@@ -23,13 +44,10 @@ DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysi
 	descriptor_buffer_size = aligned_size(descriptor_buffer_size, descriptor_buffer_properties.descriptorBufferOffsetAlignment);
 	// Buffer Offset
 	vkGetDescriptorSetLayoutBindingOffsetEXT(device, descriptorSetLayout, 0u, &descriptor_buffer_offset);
-
-	is_initialized = true;
 }
 
 
 void DescriptorBuffer::destroy(VkDevice device, VmaAllocator allocator) {
-	if (is_initialized) { vkDestroyDescriptorSetLayout(device, descriptor_set_layout, nullptr); }
 	if (is_buffer_mapped) { vmaDestroyBuffer(allocator, descriptor_buffer.buffer, descriptor_buffer.allocation); }
 }
 
@@ -48,7 +66,8 @@ inline VkDeviceAddress DescriptorBuffer::get_device_address(VkDevice device, VkB
 }
 
 
-DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout)
+DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice device
+	, VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout)
 	: DescriptorBuffer(instance, device, physicalDevice, allocator, descriptorSetLayout)
 {
 	// Allocate Buffer
@@ -186,7 +205,8 @@ VkDescriptorBufferBindingInfoEXT DescriptorBufferSampler::get_descriptor_buffer_
 
 
 
-DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout)
+DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice device
+	, VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout)
 	: DescriptorBuffer(instance, device, physicalDevice, allocator, descriptorSetLayout) 
 {
 	// Allocate Buffer
@@ -208,7 +228,7 @@ DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice d
 	is_buffer_mapped = true;
 }
 
-void DescriptorBufferUniform::setup_data(VkDevice device, AllocatedBuffer& uniform_buffer, size_t allocSize) {
+void DescriptorBufferUniform::setup_data(VkDevice device, const AllocatedBuffer& uniform_buffer, size_t allocSize) {
 
 	VkDeviceAddress ad = get_device_address(device, uniform_buffer.buffer);
 

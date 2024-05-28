@@ -31,6 +31,9 @@
     <Filter Include="Header Files\imgui">
       <UniqueIdentifier>{b38c5f05-cd98-4c66-b81d-3096d6ed1299}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders\include">
+      <UniqueIdentifier>{192fcfe0-d4c5-4694-8f87-773614070efa}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\libraryTests.cpp">
@@ -179,6 +182,15 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="shaders\colored_triangle_mesh.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\include\input_structures.glsl">
+      <Filter>Shaders\include</Filter>
+    </None>
+    <None Include="shaders\mesh.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\mesh.vert">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

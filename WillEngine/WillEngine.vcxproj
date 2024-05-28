@@ -199,6 +199,9 @@ compile_shaders.sh</Command>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
     </None>
     <None Include="shaders\gradient_color.comp" />
+    <None Include="shaders\include\input_structures.glsl" />
+    <None Include="shaders\mesh.frag" />
+    <None Include="shaders\mesh.vert" />
     <None Include="shaders\sky.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

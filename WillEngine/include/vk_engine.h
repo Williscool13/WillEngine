@@ -8,6 +8,8 @@
 #include <vk_loader.h>
 #include <vk_descriptor_buffer.h>
 
+constexpr unsigned int FRAME_OVERLAP = 2;
+
 struct DeletionQueue
 {
 	std::deque<std::function<void()>> deletors;
@@ -62,7 +64,80 @@ struct FrameData {
 	DeletionQueue _deletionQueue;
 };
 
-constexpr unsigned int FRAME_OVERLAP = 2;
+struct MeshNode : public Node {
+
+	std::shared_ptr<MeshAsset> mesh;
+
+	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override;
+};
+
+struct RenderObject {
+	uint32_t indexCount;
+	uint32_t firstIndex;
+	VkBuffer indexBuffer;
+
+	MaterialInstance* material;
+
+	glm::mat4 transform;
+	VkDeviceAddress vertexBufferAddress;
+};
+
+struct DrawContext {
+	std::vector<RenderObject> OpaqueSurfaces;
+};
+
+
+
+struct GLTFMetallic_Roughness {
+	// 2x pipelines
+	MaterialPipeline opaquePipeline;
+	MaterialPipeline transparentPipeline;
+	VkPipelineLayout pipelineLayout;
+
+	bool pipeline_layout_initialized = false;
+	VkDescriptorSetLayout materialTextureLayout;
+	VkDescriptorSetLayout materialUniformLayout;
+	DescriptorBufferSampler materialTextureDescriptorBuffer;
+	DescriptorBufferUniform materialUniformDescriptorBuffer;
+
+	struct MaterialConstants {
+		glm::vec4 colorFactors;
+		glm::vec4 metal_rough_factors;
+		//padding, we need it anyway for uniform buffers
+		glm::vec4 extra[14];
+	};
+
+	struct MaterialResources {
+		AllocatedImage colorImage;
+		VkSampler colorSampler;
+		AllocatedImage metalRoughImage;
+		VkSampler metalRoughSampler;
+		AllocatedBuffer dataBuffer;
+		uint32_t dataBufferSize;
+		uint32_t dataBufferOffset;
+	};
+
+	//DescriptorWriter writer;
+	
+
+
+	void build_pipelines(VulkanEngine* engine);
+
+	
+
+	MaterialInstance write_material(
+		VkDevice device
+		, MaterialPass pass
+		, const MaterialResources& resources
+	);
+
+
+	void destroy(VkDevice device, VmaAllocator allocator);
+};
+
+
+
+
 
 class VulkanEngine {
 public:
@@ -136,7 +211,7 @@ public:
 	void init();
 	void cleanup();
 	void draw_background(VkCommandBuffer cmd);
-	void draw_mesh(VkCommandBuffer cmd);
+	void draw_geometry(VkCommandBuffer cmd);
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	void draw();
 	void run();
@@ -158,13 +233,9 @@ public:
 	// Descriptor Buffer vars
 	VkDescriptorSetLayout textureDescriptorBufferSetLayout;
 	DescriptorBufferSampler textureDescriptorBuffer;
-
-	VkDescriptorSetLayout uniformDescriptorBufferSetLayout;
-	DescriptorBufferUniform uniformDescriptorBuffer;
+	VkDescriptorSetLayout gpuSceneDataDescriptorBufferSetLayout;
+	DescriptorBufferUniform gpuSceneDataDescriptorBuffer;
 	AllocatedBuffer gpuSceneDataBuffer;
-
-
-
 	
 	// Textures
 	AllocatedImage _whiteImage;
@@ -177,6 +248,13 @@ public:
 	AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 	void destroy_image(const AllocatedImage& img);
 
+	// Material Pipeline
+	MaterialInstance defaultData;
+	GLTFMetallic_Roughness metalRoughMaterial;
+	DrawContext mainDrawContext;
+	std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
+
+	void update_scene();
 
 private:
 	void init_vulkan();
@@ -186,6 +264,8 @@ private:
 	void init_descriptors();
 	void init_dearimgui();
 	void init_descriptor_buffer();
+	void init_descriptor_buffer_data();
+	void init_scene_data_descriptor_buffer();
 
 	void init_pipelines();
 	void init_compute_pipelines();

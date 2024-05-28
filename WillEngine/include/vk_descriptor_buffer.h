@@ -5,7 +5,8 @@
 class DescriptorBuffer {
 public:
 	DescriptorBuffer() = default;
-	DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysicalDevice physical_device, VmaAllocator allocator, VkDescriptorSetLayout descriptor_set_layout);
+	DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysicalDevice physical_device
+		, VmaAllocator allocator, VkDescriptorSetLayout descriptor_set_layout);
 
 	void destroy(VkDevice device, VmaAllocator allocator);
 
@@ -16,21 +17,23 @@ protected:
 	// buffer w/ layout specified by descriptorSetLayout
 	AllocatedBuffer descriptor_buffer;
 	VkDescriptorSetLayout descriptor_set_layout;
-	VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptor_buffer_properties{};
-
-	// total size of layout is at least sum of all bindings
-	//   but it can be larger due to potential metadata or pading from driver implementation
 	VkDeviceSize descriptor_buffer_size;
 	VkDeviceSize descriptor_buffer_offset;
+	// total size of layout is at least sum of all bindings
+	//   but it can be larger due to potential metadata or pading from driver implementationVkDeviceSize descriptor_buffer_offset;
 
-	// defined functions (define in init)
-	PFN_vkGetDescriptorSetLayoutSizeEXT vkGetDescriptorSetLayoutSizeEXT;
-	PFN_vkGetDescriptorSetLayoutBindingOffsetEXT vkGetDescriptorSetLayoutBindingOffsetEXT;
-	PFN_vkCmdBindDescriptorBuffersEXT vkCmdBindDescriptorBuffersEXT;
-	PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT;
-	PFN_vkGetDescriptorEXT vkGetDescriptorEXT;
 
-	bool is_initialized = false;
+	// static these things cause they are the same for all instances.
+	//  staticing reduces size from 400 to 112 bytes
+	static VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptor_buffer_properties;
+	static PFN_vkGetDescriptorSetLayoutSizeEXT vkGetDescriptorSetLayoutSizeEXT;
+	static PFN_vkGetDescriptorSetLayoutBindingOffsetEXT vkGetDescriptorSetLayoutBindingOffsetEXT;
+	static PFN_vkCmdBindDescriptorBuffersEXT vkCmdBindDescriptorBuffersEXT;
+	static PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT;
+	static PFN_vkGetDescriptorEXT vkGetDescriptorEXT;
+
+	static bool device_properties_retrieved;
+	static bool extension_functions_defined;
 	bool is_buffer_mapped = false;
 	void* buffer_ptr;
 };
@@ -39,9 +42,10 @@ protected:
 class DescriptorBufferUniform : public DescriptorBuffer {
 public:
 	DescriptorBufferUniform() = default;
-	DescriptorBufferUniform(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout);
+	DescriptorBufferUniform(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice
+		, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout);
 
-	void setup_data(VkDevice device, AllocatedBuffer& uniform_buffer, size_t allocSize);
+	void setup_data(VkDevice device, const AllocatedBuffer& uniform_buffer, size_t allocSize);
 	VkDescriptorBufferBindingInfoEXT get_descriptor_buffer_binding_info(VkDevice device);
 };
 
@@ -52,7 +56,8 @@ public:
 class DescriptorBufferSampler : public DescriptorBuffer {
 public:
 	DescriptorBufferSampler() = default;
-	DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout);
+	DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice
+		, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout);
 
 	void setup_data(VkDevice device, std::vector<std::pair<VkDescriptorType, VkDescriptorImageInfo>> data);
 	VkDescriptorBufferBindingInfoEXT get_descriptor_buffer_binding_info(VkDevice device);
