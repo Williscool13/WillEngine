@@ -417,8 +417,17 @@ void VulkanEngine::init_descriptor_buffer()
 		DescriptorLayoutBuilder builder;
 		builder.add_binding(0, VK_DESCRIPTOR_TYPE_SAMPLER);
 		builder.add_binding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
-		descriptorBufferSetLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT
+		textureDescriptorBufferSetLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT
 			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+	} 
+	{
+		DescriptorLayoutBuilder builder;
+		builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		uniformDescriptorBufferSetLayout = builder.build(_device
+			, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+			, nullptr
+			, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+		);
 	}
 	
 	VkDescriptorImageInfo sampler_descriptor{};
@@ -434,15 +443,24 @@ void VulkanEngine::init_descriptor_buffer()
 		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sampled_image_descriptor }
 	};
 	
-
-	textureDescriptorBuffer.init(_instance, _device, _physicalDevice);
-	textureDescriptorBuffer.setup_descriptor_set_layout(_device, descriptorBufferSetLayout);
-	textureDescriptorBuffer.prepare_buffer(_allocator);
+	textureDescriptorBuffer = DescriptorBufferSampler(_instance, _device, _physicalDevice, _allocator, textureDescriptorBufferSetLayout);
 	textureDescriptorBuffer.setup_data(_device, combined_descriptor);
-	//textureDescriptorBuffer.setup_data(_device, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, combined_descriptor1);
+
+
+	gpuSceneDataBuffer = 
+		create_buffer(sizeof(GPUSceneData)
+			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+			, VMA_MEMORY_USAGE_CPU_TO_GPU
+		);
+
+	uniformDescriptorBuffer = DescriptorBufferUniform(_instance, _device, _physicalDevice, _allocator, uniformDescriptorBufferSetLayout);
+	uniformDescriptorBuffer.setup_data(_device, gpuSceneDataBuffer, sizeof(GPUSceneData));
+
 
 	_mainDeletionQueue.push_function([&]() {
 		textureDescriptorBuffer.destroy(_device, _allocator);
+		uniformDescriptorBuffer.destroy(_device, _allocator);
+		destroy_buffer(gpuSceneDataBuffer);
 	});
 }
 
@@ -535,8 +553,12 @@ void VulkanEngine::init_mesh_pipeline()
 	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
 	pipeline_layout_info.pPushConstantRanges = &pushConstantRange;
 	pipeline_layout_info.pushConstantRangeCount = 1;
-	pipeline_layout_info.setLayoutCount = 1;
-	pipeline_layout_info.pSetLayouts = &descriptorBufferSetLayout; // change this when using extension
+	//pipeline_layout_info.setLayoutCount = 1;
+	//pipeline_layout_info.pSetLayouts = &textureDescriptorBufferSetLayout; 
+	pipeline_layout_info.setLayoutCount = 2;
+	VkDescriptorSetLayout stuff[] =
+		{ textureDescriptorBufferSetLayout, uniformDescriptorBufferSetLayout };
+	pipeline_layout_info.pSetLayouts = stuff;
 	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_meshPipelineLayout));
 
 	VkShaderModule meshFragShader;
@@ -761,14 +783,52 @@ void VulkanEngine::draw_mesh(VkCommandBuffer cmd)
 	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 5.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(70.0f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.0f, 0.1f);
 
-	push_constants.worldMatrix = proj * view * model;
+	// sceneData def
+	GPUSceneData sceneData;
+	{
+		sceneData.ambientColor = glm::vec4(0.1, 0.1, 0.1, 1);
+		sceneData.sunlightDirection = glm::vec4(1, 1, 1, 1);
+		sceneData.sunlightColor = glm::vec4(1, 1, 1, 1);
+		sceneData.proj = proj;
+		sceneData.view = view;
+		sceneData.viewproj = proj * view;
+	} 
+	
+
+	// writing directly, if larger data, use staging buffer
+	GPUSceneData* sceneUniformData = (GPUSceneData*)gpuSceneDataBuffer.allocation->GetMappedData();
+	*sceneUniformData = sceneData;
+	//uniformDescriptorBuffer.setup_data(_device, gpuSceneDataBuffer, sizeof(GPUSceneData));
 
 	constexpr int targetMesh = 2;
 
 
+	//// DESCRIPTOR BUFFERS 
+	PFN_vkCmdBindDescriptorBuffersEXT vkCmdBindDescriptorBuffersEXT
+		= (PFN_vkCmdBindDescriptorBuffersEXT)vkGetDeviceProcAddr(_device, "vkCmdBindDescriptorBuffersEXT");
+	PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT
+		= (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetDeviceProcAddr(_device, "vkCmdSetDescriptorBufferOffsetsEXT");
+	// bind descriptor buffer
+	VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[2]{};
+	descriptor_buffer_binding_info[0] = textureDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
+	descriptor_buffer_binding_info[1] = uniformDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
+	vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptor_buffer_binding_info);
+	// set descriptor buffer offsets
+	uint32_t     buffer_index_image = 0;
+	uint32_t     buffer_index_ubo   = 1;
+	VkDeviceSize buffer_offset = 0;
+	// image - bind to set 0
+	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout
+		, 0, 1, &buffer_index_image, &buffer_offset); 
+	// uniform - bind to set 1
+	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout
+		, 1, 1, &buffer_index_ubo, &buffer_offset);
 
-	textureDescriptorBuffer.bind(cmd, _device, _meshPipelineLayout);
 
+
+	//textureDescriptorBuffer.bind(cmd, _device, _meshPipelineLayout);
+
+	push_constants.worldMatrix = model;
 	push_constants.vertexBuffer = testMeshes[targetMesh]->meshBuffers.vertexBufferAddress;
 	vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
 	vkCmdBindIndexBuffer(cmd, testMeshes[targetMesh]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -988,6 +1048,11 @@ AllocatedBuffer VulkanEngine::create_buffer(size_t allocSize, VkBufferUsageFlags
 	return newBuffer;
 }
 
+void VulkanEngine::destroy_buffer(const AllocatedBuffer& buffer)
+{
+	vmaDestroyBuffer(_allocator, buffer.buffer, buffer.allocation);
+}
+
 GPUMeshBuffers VulkanEngine::uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices)
 {
 	const size_t vertexBufferSize = vertices.size() * sizeof(Vertex);
@@ -1041,10 +1106,6 @@ GPUMeshBuffers VulkanEngine::uploadMesh(std::span<uint32_t> indices, std::span<V
 
 }
 
-void VulkanEngine::destroy_buffer(const AllocatedBuffer& buffer)
-{
-	vmaDestroyBuffer(_allocator, buffer.buffer, buffer.allocation);
-}
 
 void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function)
 {
@@ -1065,6 +1126,8 @@ void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& f
 	VK_CHECK(vkWaitForFences(_device, 1, &_immFence, true, 1000000000));
 }
 
+
+#pragma region TEXTURES
 AllocatedImage VulkanEngine::create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
 {
 	AllocatedImage newImage;
@@ -1141,3 +1204,4 @@ void VulkanEngine::destroy_image(const AllocatedImage& img)
 	vkDestroyImageView(_device, img.imageView, nullptr);
 	vmaDestroyImage(_allocator, img.image, img.allocation);
 }
+#pragma endregion TEXTURES

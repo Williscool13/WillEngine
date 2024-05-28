@@ -34,7 +34,14 @@ struct ComputePushConstants {
 	glm::vec4 data4;
 };
 
-
+struct GPUSceneData {
+	glm::mat4 view;
+	glm::mat4 proj;
+	glm::mat4 viewproj;
+	glm::vec4 ambientColor;
+	glm::vec4 sunlightDirection; // w for sun power
+	glm::vec4 sunlightColor;
+};
 
 struct ComputeEffect {
 	const char* name;
@@ -149,9 +156,14 @@ public:
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
 	// Descriptor Buffer vars
+	VkDescriptorSetLayout textureDescriptorBufferSetLayout;
 	DescriptorBufferSampler textureDescriptorBuffer;
-	AllocatedBuffer descriptorBufferAllocatedBuffer;
-	VkDescriptorSetLayout descriptorBufferSetLayout;
+
+	VkDescriptorSetLayout uniformDescriptorBufferSetLayout;
+	DescriptorBufferUniform uniformDescriptorBuffer;
+	AllocatedBuffer gpuSceneDataBuffer;
+
+
 
 	
 	// Textures
