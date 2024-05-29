@@ -76,7 +76,7 @@ DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice d
 	// Allocate Buffer
 	VkBufferCreateInfo bufferInfo = { .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 	bufferInfo.pNext = nullptr;
-	bufferInfo.size = descriptor_buffer_size;
+	bufferInfo.size = descriptor_buffer_size * maxObjectCount;
 	bufferInfo.usage =
 		VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
 		| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
