@@ -126,11 +126,10 @@ struct GLTFMetallic_Roughness {
 	
 
 	MaterialInstance write_material(
-		VkDevice device
+		VulkanEngine* engine
 		, MaterialPass pass
 		, const MaterialResources& resources
 	);
-
 
 	void destroy(VkDevice device, VmaAllocator allocator);
 };
@@ -158,21 +157,16 @@ public:
 	VkPhysicalDevice _physicalDevice;
 	VkDevice _device;
 	VkSurfaceKHR _surface;
-
 	VkDevice _oldDevice;
+	VmaAllocator _allocator;
 
 	// Global Lifetime Deletion Queue
 	DeletionQueue _mainDeletionQueue;
-
-	// Memory allocator
-	VmaAllocator _allocator;
 
 	//draw resources
 	AllocatedImage _drawImage;
 	AllocatedImage _depthImage;
 	VkExtent2D _drawExtent;
-
-	// Render Scale
 	float _renderScale{ 1.0f };
 	float _maxRenderScale{ 1.0f };
 
@@ -189,23 +183,12 @@ public:
 	VkQueue _graphicsQueue;
 	uint32_t _graphicsQueueFamily;
 
-	// Descriptor, Layout, Allocator
-	DescriptorAllocator globalDescriptorAllocator;
-	VkDescriptorSet _drawImageDescriptorSet;
-	VkDescriptorSetLayout _drawImageDescriptorLayout;
-
-
-	// Background (Compute)
+	// Background Pipeline (Compute)
 	VkPipelineLayout _backgroundEffectPipelineLayout;
 	std::vector<ComputeEffect> backgroundEffects;
 	int currentBackgroundEffect{ 0 };
-
-	// Mesh (Graphics)
-	VkPipelineLayout _meshPipelineLayout;
-	VkPipeline _meshPipeline;
-	GPUMeshBuffers rectangle;
-
-	std::vector<std::shared_ptr<MeshAsset>> testMeshes;
+	VkDescriptorSetLayout computeImageDescriptorSetLayout;
+	DescriptorBufferSampler computeImageDescriptorBuffer;
 
 
 	void init();
@@ -230,12 +213,7 @@ public:
 	VkCommandPool _immCommandPool;
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
-	// Descriptor Buffer vars
-	VkDescriptorSetLayout textureDescriptorBufferSetLayout;
-	DescriptorBufferSampler textureDescriptorBuffer;
-	VkDescriptorSetLayout gpuSceneDataDescriptorBufferSetLayout;
-	DescriptorBufferUniform gpuSceneDataDescriptorBuffer;
-	AllocatedBuffer gpuSceneDataBuffer;
+	
 	
 	// Textures
 	AllocatedImage _whiteImage;
@@ -249,11 +227,19 @@ public:
 	void destroy_image(const AllocatedImage& img);
 
 	// Material Pipeline
-	MaterialInstance defaultData;
-	GLTFMetallic_Roughness metalRoughMaterial;
+	MaterialInstance defaultOpaqueMaterial;
+	GLTFMetallic_Roughness metallicRoughnessPipelines;
 	DrawContext mainDrawContext;
-	std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
 
+	GPUSceneData sceneData;
+	VkDescriptorSetLayout gpuSceneDataDescriptorBufferSetLayout;
+	DescriptorBufferUniform gpuSceneDataDescriptorBuffer;
+	AllocatedBuffer gpuSceneDataBuffer;
+	float distBetween{ 0.65f };
+	int targetMesh { 2 };
+
+	std::vector<std::shared_ptr<MeshAsset>> meshes;
+	std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
 	void update_scene();
 
 private:
@@ -263,13 +249,9 @@ private:
 	void init_sync_structures();
 	void init_descriptors();
 	void init_dearimgui();
-	void init_descriptor_buffer();
-	void init_descriptor_buffer_data();
-	void init_scene_data_descriptor_buffer();
 
 	void init_pipelines();
 	void init_compute_pipelines();
-	void init_mesh_pipeline();
 
 	void init_data();
 
