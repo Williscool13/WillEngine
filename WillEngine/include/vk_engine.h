@@ -141,6 +141,10 @@ struct GLTFMetallic_Roughness {
 class VulkanEngine {
 public:
 
+
+	PFN_vkCmdBindDescriptorBuffersEXT vkCmdBindDescriptorBuffersEXT;
+	PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT;
+
 	bool _isInitialized{ false };
 	int _frameNumber {0};
 	bool stop_rendering{ false };

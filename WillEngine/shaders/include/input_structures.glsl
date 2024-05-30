@@ -8,10 +8,10 @@ layout(set = 0, binding = 0) uniform  SceneData{
 	vec4 sunlightColor;
 } sceneData;
 
-layout(set = 1, binding = 0) uniform sampler colorSampler;
-layout(set = 1, binding = 1) uniform texture2D colorTexture;
-layout(set = 1, binding = 2) uniform sampler metalRoughSampler;
-layout(set = 1, binding = 3) uniform texture2D metalRoughTexture;
+layout(set = 1, binding = 0) uniform sampler colorS;
+layout(set = 1, binding = 1) uniform sampler metalS;
+layout(set = 1, binding = 2) uniform texture2D colorI;
+layout(set = 1, binding = 3) uniform texture2D metalI;
 
 layout(set = 2, binding = 0) uniform GLTFMaterialData{
 

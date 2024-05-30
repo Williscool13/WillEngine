@@ -156,6 +156,8 @@ void VulkanEngine::init_vulkan()
 	// END EXTENSION
 	_oldDevice = vkbDevice.device; // save old device (for deletion later)
 
+	vkCmdBindDescriptorBuffersEXT = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetDeviceProcAddr(_device, "vkCmdBindDescriptorBuffersEXT");
+	vkCmdSetDescriptorBufferOffsetsEXT = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetDeviceProcAddr(_device, "vkCmdSetDescriptorBufferOffsetsEXT");
 
 	// Graphics Queue
 	//_graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
@@ -614,16 +616,16 @@ void VulkanEngine::init_data()
 #pragma region Default Material
 	GLTFMetallic_Roughness::MaterialResources materialResources;
 	//default the material textures
-	materialResources.colorImage = _whiteImage;
+	materialResources.colorImage = _errorCheckerboardImage;
 	materialResources.colorSampler = _defaultSamplerLinear;
-	materialResources.metalRoughImage = _whiteImage;
-	materialResources.metalRoughSampler = _defaultSamplerLinear;
+	materialResources.metalRoughImage = _errorCheckerboardImage;
+	materialResources.metalRoughSampler = _defaultSamplerNearest; 
 
 	//set the uniform buffer for the material data
 	AllocatedBuffer materialConstants = 
 		create_buffer(sizeof(GLTFMetallic_Roughness::MaterialConstants)
 			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-			, VMA_MEMORY_USAGE_CPU_TO_GPU);
+			, VMA_MEMORY_USAGE_CPU_TO_GPU);  
 
 	// Not modified in current build
 	GLTFMetallic_Roughness::MaterialConstants* sceneUniformData = 
@@ -664,7 +666,7 @@ void VulkanEngine::init_data()
 			s.material = std::make_shared<GLTFMaterial>(defaultOpaqueMaterial);
 		}
 
-		loadedNodes[m->name] = std::move(newNode);
+		loadedNodes[m->name] = std::move(newNode); 
 	}
 #pragma endregion
 
@@ -718,11 +720,6 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
 	vkCmdPushConstants(cmd, _backgroundEffectPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &selected._data);
 
 
-
-	PFN_vkCmdBindDescriptorBuffersEXT vkCmdBindDescriptorBuffersEXT
-		= (PFN_vkCmdBindDescriptorBuffersEXT)vkGetDeviceProcAddr(_device, "vkCmdBindDescriptorBuffersEXT");
-	PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT
-		= (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetDeviceProcAddr(_device, "vkCmdSetDescriptorBufferOffsetsEXT");
 	VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[1]{};
 	descriptor_buffer_binding_info[0] = computeImageDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
 	vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptor_buffer_binding_info);
@@ -744,12 +741,6 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	VkRenderingAttachmentInfo depthAttachment = vkinit::attachment_info(_depthImage.imageView, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
 	vkCmdBeginRendering(cmd, &renderInfo);
-
-
-	PFN_vkCmdBindDescriptorBuffersEXT vkCmdBindDescriptorBuffersEXT
-		= (PFN_vkCmdBindDescriptorBuffersEXT)vkGetDeviceProcAddr(_device, "vkCmdBindDescriptorBuffersEXT");
-	PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT
-		= (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetDeviceProcAddr(_device, "vkCmdSetDescriptorBufferOffsetsEXT");
 
 	for (const RenderObject& draw : mainDrawContext.OpaqueSurfaces) {
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
@@ -778,7 +769,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 		descriptor_buffer_binding_info[0] = gpuSceneDataDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
 		descriptor_buffer_binding_info[1] = draw.material->pipeline->materialTextureDescriptorBuffer->get_descriptor_buffer_binding_info(_device);
 		descriptor_buffer_binding_info[2] = draw.material->pipeline->materialUniformDescriptorBuffer->get_descriptor_buffer_binding_info(_device);
-		vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptor_buffer_binding_info);
+		vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptor_buffer_binding_info); 
 		uint32_t buffer_index_ubo = 0;
 		uint32_t buffer_index_image = 1;
 		uint32_t buffer_index_material = 2;
@@ -959,6 +950,35 @@ void VulkanEngine::run()
 			ImGui::SliderFloat("Distance Between", &distBetween, 0.1f, 2.0f);
 
 			ImGui::SliderFloat("Camera Distance", &camera_dist, 1.0f, 10.0f);
+
+			if (ImGui::Button("Change Texture Fail")) {
+				mainDrawContext.OpaqueSurfaces[0].material->colorDescriptorImageInfo.imageView 
+					= _whiteImage.imageView;
+			}
+
+			if (ImGui::Button("Change Texture")) {
+
+				VkDescriptorImageInfo colorCombinedDescriptor{};
+				colorCombinedDescriptor.sampler = _defaultSamplerNearest;
+				colorCombinedDescriptor.imageView = _whiteImage.imageView; 
+				colorCombinedDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+				VkDescriptorImageInfo metalRoughCombinedDescriptor{};
+				metalRoughCombinedDescriptor.sampler = _defaultSamplerLinear;
+				metalRoughCombinedDescriptor.imageView = _errorCheckerboardImage.imageView;
+				metalRoughCombinedDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+				// needs to match the order of the bindings in the layout
+				std::vector<std::pair<VkDescriptorType, VkDescriptorImageInfo>> combined_descriptor = {
+					{ VK_DESCRIPTOR_TYPE_SAMPLER, colorCombinedDescriptor },
+					{ VK_DESCRIPTOR_TYPE_SAMPLER, metalRoughCombinedDescriptor },
+					{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, colorCombinedDescriptor },
+					{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, metalRoughCombinedDescriptor} 
+				};
+				
+				metallicRoughnessPipelines.materialTextureDescriptorBuffer.set_data(_device, combined_descriptor, 0);
+			}
+				
 
 			ImGui::End();
 		}
@@ -1202,9 +1222,11 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 	{
 		DescriptorLayoutBuilder layoutBuilder;
 		layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_SAMPLER);
-		layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
-		layoutBuilder.add_binding(2, VK_DESCRIPTOR_TYPE_SAMPLER);
+		layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_SAMPLER);
+		layoutBuilder.add_binding(2, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
 		layoutBuilder.add_binding(3, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
+
+
 		materialTextureLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_FRAGMENT_BIT
 			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 	}
@@ -1298,31 +1320,28 @@ MaterialInstance GLTFMetallic_Roughness::write_material(
 		matData.pipeline = &opaquePipeline;
 	}
 
-	VkDescriptorImageInfo colorSamplerDescriptor{};
-	colorSamplerDescriptor.sampler = resources.colorSampler;
-	VkDescriptorImageInfo colorSampledImageDescriptor{};
-	colorSampledImageDescriptor.imageView = resources.colorImage.imageView;
-	colorSampledImageDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	VkDescriptorImageInfo colorCombinedDescriptor{};
+	colorCombinedDescriptor.sampler = resources.colorSampler;
+	colorCombinedDescriptor.imageView = resources.colorImage.imageView;
+	colorCombinedDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	VkDescriptorImageInfo metalRoughSamplerDescriptor{};
-	metalRoughSamplerDescriptor.sampler = resources.metalRoughSampler;
-	VkDescriptorImageInfo metalRoughSampledImageDescriptor{};
-	metalRoughSampledImageDescriptor.imageView = resources.metalRoughImage.imageView;
-	metalRoughSampledImageDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	VkDescriptorImageInfo metalRoughCombinedDescriptor{};
+	metalRoughCombinedDescriptor.sampler = resources.metalRoughSampler;
+	metalRoughCombinedDescriptor.imageView = resources.metalRoughImage.imageView;
+	metalRoughCombinedDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
 
 	// needs to match the order of the bindings in the layout
 	std::vector<std::pair<VkDescriptorType, VkDescriptorImageInfo>> combined_descriptor = {
-		{ VK_DESCRIPTOR_TYPE_SAMPLER, colorSamplerDescriptor },
-		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, colorSampledImageDescriptor },
-		{ VK_DESCRIPTOR_TYPE_SAMPLER, metalRoughSamplerDescriptor },
-		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, metalRoughSampledImageDescriptor }
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, colorCombinedDescriptor },
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, metalRoughCombinedDescriptor },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, colorCombinedDescriptor },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, metalRoughCombinedDescriptor}
 	};
 	
 
-	matData.colorSamplerDescriptor			 = colorSamplerDescriptor;
-	matData.colorSampledImageDescriptor		 = colorSampledImageDescriptor;
-	matData.metalRoughSamplerDescriptor		 = metalRoughSamplerDescriptor;
-	matData.metalRoughSampledImageDescriptor = metalRoughSampledImageDescriptor;
+	matData.colorDescriptorImageInfo 		 = colorCombinedDescriptor;
+	matData.metalRoughDescriptorImageInfo	 = metalRoughCombinedDescriptor;
 	matData.materialUniformBuffer			 = resources.dataBuffer;
 
 

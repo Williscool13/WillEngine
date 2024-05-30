@@ -83,10 +83,8 @@ struct MaterialPipeline {
 struct MaterialInstance {
 	MaterialPipeline* pipeline;
 	// descriptor properties
-	VkDescriptorImageInfo colorSamplerDescriptor;
-	VkDescriptorImageInfo colorSampledImageDescriptor;
-	VkDescriptorImageInfo metalRoughSamplerDescriptor;
-	VkDescriptorImageInfo metalRoughSampledImageDescriptor;
+	VkDescriptorImageInfo colorDescriptorImageInfo;
+	VkDescriptorImageInfo metalRoughDescriptorImageInfo;
 	AllocatedBuffer materialUniformBuffer;
 
 	int textureDescriptorBufferIndex;
