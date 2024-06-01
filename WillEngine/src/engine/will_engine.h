@@ -33,7 +33,7 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 // project utilities
-#include <time_util.h>
+#include <time_utils.h>
 #include <input.h>
 // sdl
 #include <SDL2/SDL.h>

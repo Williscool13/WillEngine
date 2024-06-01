@@ -23,16 +23,12 @@ VulkanEngine* loadedEngine = nullptr;
 
 VulkanEngine& VulkanEngine::Get() { return *loadedEngine; }
 
-inline VkDeviceSize aligned_size(VkDeviceSize value, VkDeviceSize alignment)
-{
-	return (value + alignment - 1) & ~(alignment - 1);
-}
-
 void VulkanEngine::init()
 {
 	// We initialize SDL and create a window with it.
 	SDL_Init(SDL_INIT_VIDEO);
 	SDL_SetRelativeMouseMode(SDL_TRUE);
+	loadedEngine = this;
 	SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
 	_window = SDL_CreateWindow(

@@ -76,11 +76,20 @@
     <ClCompile Include="src\vkbootstrap\VkBootstrap.cpp">
       <Filter>libraries\vkbootstrap</Filter>
     </ClCompile>
-    <ClCompile Include="src\engine\vulkan\vk_engine.cpp">
-      <Filter>engine\vulkan</Filter>
+    <ClCompile Include="src\engine\core\camera.cpp">
+      <Filter>engine\core</Filter>
     </ClCompile>
-    <ClCompile Include="src\engine\vulkan\vk_images.cpp">
-      <Filter>engine\vulkan</Filter>
+    <ClCompile Include="src\engine\core\acceleration_structures.cpp">
+      <Filter>engine\core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\utils\time_utils.cpp">
+      <Filter>engine\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\utils\input.cpp">
+      <Filter>engine\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\main.cpp">
+      <Filter>engine</Filter>
     </ClCompile>
     <ClCompile Include="src\engine\vulkan\vk_initializers.cpp">
       <Filter>engine\vulkan</Filter>
@@ -97,31 +106,28 @@
     <ClCompile Include="src\engine\vulkan\vk_descriptors.cpp">
       <Filter>engine\vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="src\engine\core\camera.cpp">
-      <Filter>engine\core</Filter>
+    <ClCompile Include="src\engine\vulkan\vk_engine.cpp">
+      <Filter>engine\vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="src\engine\core\acceleration_structures.cpp">
-      <Filter>engine\core</Filter>
-    </ClCompile>
-    <ClCompile Include="src\engine\utils\time_util.cpp">
-      <Filter>engine\utils</Filter>
-    </ClCompile>
-    <ClCompile Include="src\engine\utils\input.cpp">
-      <Filter>engine\utils</Filter>
-    </ClCompile>
-    <ClCompile Include="src\engine\main.cpp">
-      <Filter>engine</Filter>
+    <ClCompile Include="src\engine\vulkan\vk_images.cpp">
+      <Filter>engine\vulkan</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\engine\vulkan\vk_descriptors.h">
-      <Filter>engine\vulkan</Filter>
+    <ClInclude Include="src\engine\core\acceleration_structures.h">
+      <Filter>engine\core</Filter>
     </ClInclude>
-    <ClInclude Include="src\engine\vulkan\vk_engine.h">
-      <Filter>engine\vulkan</Filter>
+    <ClInclude Include="src\engine\core\camera.h">
+      <Filter>engine\core</Filter>
     </ClInclude>
-    <ClInclude Include="src\engine\vulkan\vk_images.h">
-      <Filter>engine\vulkan</Filter>
+    <ClInclude Include="src\engine\utils\input.h">
+      <Filter>engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\utils\time_utils.h">
+      <Filter>engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\will_engine.h">
+      <Filter>engine</Filter>
     </ClInclude>
     <ClInclude Include="src\engine\vulkan\vk_initializers.h">
       <Filter>engine\vulkan</Filter>
@@ -138,20 +144,14 @@
     <ClInclude Include="src\engine\vulkan\vk_descriptor_buffer.h">
       <Filter>engine\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="src\engine\core\acceleration_structures.h">
-      <Filter>engine\core</Filter>
+    <ClInclude Include="src\engine\vulkan\vk_descriptors.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="src\engine\core\camera.h">
-      <Filter>engine\core</Filter>
+    <ClInclude Include="src\engine\vulkan\vk_engine.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="src\engine\utils\input.h">
-      <Filter>engine\utils</Filter>
-    </ClInclude>
-    <ClInclude Include="src\engine\utils\time_util.h">
-      <Filter>engine\utils</Filter>
-    </ClInclude>
-    <ClInclude Include="src\engine\will_engine.h">
-      <Filter>engine</Filter>
+    <ClInclude Include="src\engine\vulkan\vk_images.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

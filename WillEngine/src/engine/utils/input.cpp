@@ -59,8 +59,8 @@ void InputManager::frame_reset() {
 void InputManager::update(const SDL_Event* e) {
 // Mouse
 	if (e->type == SDL_MOUSEMOTION) {
-		mouseMotionData.xrel += (float)e->motion.xrel;
-		mouseMotionData.yrel += (float)e->motion.yrel;
+		mouseMotionData.xrel += static_cast<float>(e->motion.xrel);
+		mouseMotionData.yrel += static_cast<float>(e->motion.yrel);
 		mouseMotionData.x = e->motion.x;
 		mouseMotionData.y = e->motion.y;
 	}
