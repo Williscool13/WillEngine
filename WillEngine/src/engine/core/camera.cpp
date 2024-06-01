@@ -1,4 +1,4 @@
-#include <camera.h>
+#include "camera.h"
 #ifndef GLM_ENABLE_EXPERIMENTAL
 #define GLM_ENABLE_EXPERIMENTAL
 #endif
@@ -24,19 +24,18 @@ void Camera::processSDLEvent(bool inFocus)
     if (!inFocus) { velocity = glm::vec3(0.f); return; }
 
     velocity.x =
-        InputManager::Get().isKeyDown(InputManager::Key::A) ? -1 : 0
-        + InputManager::Get().isKeyDown(InputManager::Key::D) ? 1 : 0;
+        InputManager::Get().isKeyDown(InputManager::Key::A) ? -1.0f : 0.0f
+        + InputManager::Get().isKeyDown(InputManager::Key::D) ? 1.0f : 0.0f;
     velocity.z =
-        InputManager::Get().isKeyDown(InputManager::Key::W) ? -1 : 0
-		+ InputManager::Get().isKeyDown(InputManager::Key::S) ? 1 : 0;
+        InputManager::Get().isKeyDown(InputManager::Key::W) ? -1.0f : 0.0f
+		+ InputManager::Get().isKeyDown(InputManager::Key::S) ? 1.0f : 0.0f;
     velocity *= TimeUtil::Get().getDeltaTime();
     yaw += InputManager::Get().getMouseXRel() / 200.0f;
     pitch -= InputManager::Get().getMouseYRel() / 200.0f;
     pitch = glm::clamp(pitch, -glm::half_pi<float>(), glm::half_pi<float>());
-
 }
 
-glm::mat4 Camera::getViewMatrix()
+glm::mat4 Camera::getViewMatrix() const
 {
     // to create a correct model view, we need to move the world in opposite
     // direction to the camera
@@ -46,7 +45,7 @@ glm::mat4 Camera::getViewMatrix()
     return glm::inverse(cameraTranslation * cameraRotation);
 }
 
-glm::mat4 Camera::getRotationMatrix()
+glm::mat4 Camera::getRotationMatrix() const
 {
     // fairly typical FPS style camera. we join the pitch and yaw rotations into
     // the final rotation matrix

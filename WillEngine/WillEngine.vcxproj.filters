@@ -1,212 +1,189 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
+    <Filter Include="libraries">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
-    <Filter Include="Source Files\fastgltf">
+    <Filter Include="libraries\fastgltf">
       <UniqueIdentifier>{a53f71aa-4519-4d09-aad3-b79abee675af}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\imgui">
+    <Filter Include="libraries\imgui">
       <UniqueIdentifier>{63200df0-ef1e-48f6-aa55-56736db24ddc}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\simdjson">
+    <Filter Include="libraries\simdjson">
       <UniqueIdentifier>{af7b7d62-abde-4a42-b7fa-ca4b84bb297b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\vkbootstrap">
+    <Filter Include="libraries\vkbootstrap">
       <UniqueIdentifier>{08aad50f-6288-4d81-861b-926229b36482}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Shaders">
+    <Filter Include="shaders">
       <UniqueIdentifier>{2887c6a3-f5ac-4cc1-94e0-3334a67f600f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\imgui">
-      <UniqueIdentifier>{b38c5f05-cd98-4c66-b81d-3096d6ed1299}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shaders\include">
+    <Filter Include="shaders\include">
       <UniqueIdentifier>{192fcfe0-d4c5-4694-8f87-773614070efa}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Utils">
-      <UniqueIdentifier>{af7161df-500d-4290-9e0f-528a2b0dd881}</UniqueIdentifier>
+    <Filter Include="engine">
+      <UniqueIdentifier>{418bd2db-a9cc-4e2d-82d7-0048a6a7f83f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\vulkan">
+      <UniqueIdentifier>{a6eff8eb-8d49-43af-bfb8-1ec8fbb39abe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\core">
+      <UniqueIdentifier>{a3bc0f92-3731-4616-b770-2cbd37c26468}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\utils">
+      <UniqueIdentifier>{336a8811-8d68-4432-9b62-f4025a85bc01}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="include\imgui\imgui_tables.cpp">
-      <Filter>Source Files\imgui</Filter>
+      <Filter>libraries\imgui</Filter>
     </ClCompile>
     <ClCompile Include="include\imgui\imgui_widgets.cpp">
-      <Filter>Source Files\imgui</Filter>
+      <Filter>libraries\imgui</Filter>
     </ClCompile>
     <ClCompile Include="include\imgui\imgui.cpp">
-      <Filter>Source Files\imgui</Filter>
+      <Filter>libraries\imgui</Filter>
     </ClCompile>
     <ClCompile Include="include\imgui\imgui_demo.cpp">
-      <Filter>Source Files\imgui</Filter>
+      <Filter>libraries\imgui</Filter>
     </ClCompile>
     <ClCompile Include="include\imgui\imgui_draw.cpp">
-      <Filter>Source Files\imgui</Filter>
+      <Filter>libraries\imgui</Filter>
     </ClCompile>
     <ClCompile Include="src\fastgltf\fastgltf.cpp">
-      <Filter>Source Files\fastgltf</Filter>
+      <Filter>libraries\fastgltf</Filter>
     </ClCompile>
     <ClCompile Include="src\fastgltf\fastgltf.ixx">
-      <Filter>Source Files\fastgltf</Filter>
+      <Filter>libraries\fastgltf</Filter>
     </ClCompile>
     <ClCompile Include="src\fastgltf\io.cpp">
-      <Filter>Source Files\fastgltf</Filter>
+      <Filter>libraries\fastgltf</Filter>
     </ClCompile>
     <ClCompile Include="src\fastgltf\base64.cpp">
-      <Filter>Source Files\fastgltf</Filter>
+      <Filter>libraries\fastgltf</Filter>
     </ClCompile>
     <ClCompile Include="src\simdjson\simdjson.cpp">
-      <Filter>Source Files\simdjson</Filter>
-    </ClCompile>
-    <ClCompile Include="src\vk_images.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\vk_initializers.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\vk_loader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\vk_pipelines.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\vk_descriptors.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\vk_engine.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="include\vkbootstrap\VkBootstrap.cpp">
-      <Filter>Source Files\vkbootstrap</Filter>
+      <Filter>libraries\simdjson</Filter>
     </ClCompile>
     <ClCompile Include="include\imgui\backends\imgui_impl_vulkan.cpp">
-      <Filter>Source Files\imgui</Filter>
+      <Filter>libraries\imgui</Filter>
     </ClCompile>
     <ClCompile Include="include\imgui\backends\imgui_impl_sdl2.cpp">
-      <Filter>Source Files\imgui</Filter>
+      <Filter>libraries\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="src\vk_descriptor_buffer.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\vkbootstrap\VkBootstrap.cpp">
+      <Filter>libraries\vkbootstrap</Filter>
     </ClCompile>
-    <ClCompile Include="src\input_manager.cpp">
-      <Filter>Utils</Filter>
+    <ClCompile Include="src\engine\vulkan\vk_engine.cpp">
+      <Filter>engine\vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="src\time_util.cpp">
-      <Filter>Utils</Filter>
+    <ClCompile Include="src\engine\vulkan\vk_images.cpp">
+      <Filter>engine\vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="src\camera.cpp">
-      <Filter>Utils</Filter>
+    <ClCompile Include="src\engine\vulkan\vk_initializers.cpp">
+      <Filter>engine\vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="src\libraryTests.cpp">
-      <Filter>Utils</Filter>
+    <ClCompile Include="src\engine\vulkan\vk_loader.cpp">
+      <Filter>engine\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\vulkan\vk_pipelines.cpp">
+      <Filter>engine\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\vulkan\vk_descriptor_buffer.cpp">
+      <Filter>engine\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\vulkan\vk_descriptors.cpp">
+      <Filter>engine\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\core\camera.cpp">
+      <Filter>engine\core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\core\acceleration_structures.cpp">
+      <Filter>engine\core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\utils\time_util.cpp">
+      <Filter>engine\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\utils\input.cpp">
+      <Filter>engine\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\main.cpp">
+      <Filter>engine</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\vk_engine.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\engine\vulkan\vk_descriptors.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="include\vk_images.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\engine\vulkan\vk_engine.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="include\vk_initializers.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\engine\vulkan\vk_images.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="include\vk_loader.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\engine\vulkan\vk_initializers.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="include\vk_pipelines.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\engine\vulkan\vk_loader.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="include\vk_types.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\engine\vulkan\vk_pipelines.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="include\simdjson.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\engine\vulkan\vk_types.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="include\vk_descriptors.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\engine\vulkan\vk_descriptor_buffer.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="include\imgui\imstb_textedit.h">
-      <Filter>Header Files\imgui</Filter>
+    <ClInclude Include="src\engine\core\acceleration_structures.h">
+      <Filter>engine\core</Filter>
     </ClInclude>
-    <ClInclude Include="include\imgui\imstb_truetype.h">
-      <Filter>Header Files\imgui</Filter>
+    <ClInclude Include="src\engine\core\camera.h">
+      <Filter>engine\core</Filter>
     </ClInclude>
-    <ClInclude Include="include\imgui\imconfig.h">
-      <Filter>Header Files\imgui</Filter>
+    <ClInclude Include="src\engine\utils\input.h">
+      <Filter>engine\utils</Filter>
     </ClInclude>
-    <ClInclude Include="include\imgui\imgui.h">
-      <Filter>Header Files\imgui</Filter>
+    <ClInclude Include="src\engine\utils\time_util.h">
+      <Filter>engine\utils</Filter>
     </ClInclude>
-    <ClInclude Include="include\imgui\imgui_internal.h">
-      <Filter>Header Files\imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="include\imgui\imstb_rectpack.h">
-      <Filter>Header Files\imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="include\vk_descriptor_buffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\input_manager.h">
-      <Filter>Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="include\time_util.h">
-      <Filter>Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="include\camera.h">
-      <Filter>Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="include\libraryTests.h">
-      <Filter>Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="include\willEngine.h">
-      <Filter>Utils</Filter>
+    <ClInclude Include="src\engine\will_engine.h">
+      <Filter>engine</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\gradient.comp">
-      <Filter>Shaders</Filter>
+      <Filter>shaders</Filter>
     </None>
     <None Include="compile_shaders.sh">
-      <Filter>Shaders</Filter>
+      <Filter>shaders</Filter>
     </None>
     <None Include="shaders\gradient_color.comp">
-      <Filter>Shaders</Filter>
+      <Filter>shaders</Filter>
     </None>
     <None Include="shaders\sky.comp">
-      <Filter>Shaders</Filter>
+      <Filter>shaders</Filter>
     </None>
     <None Include="shaders\colored_triangle.vert">
-      <Filter>Shaders</Filter>
+      <Filter>shaders</Filter>
     </None>
     <None Include="shaders\colored_triangle.frag">
-      <Filter>Shaders</Filter>
+      <Filter>shaders</Filter>
     </None>
     <None Include="shaders\colored_triangle_mesh.vert">
-      <Filter>Shaders</Filter>
+      <Filter>shaders</Filter>
     </None>
     <None Include="shaders\include\input_structures.glsl">
-      <Filter>Shaders\include</Filter>
+      <Filter>shaders\include</Filter>
     </None>
     <None Include="shaders\mesh.frag">
-      <Filter>Shaders</Filter>
+      <Filter>shaders</Filter>
     </None>
     <None Include="shaders\mesh.vert">
-      <Filter>Shaders</Filter>
+      <Filter>shaders</Filter>
     </None>
   </ItemGroup>
 </Project>

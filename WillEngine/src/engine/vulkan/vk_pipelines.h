@@ -1,5 +1,7 @@
 ﻿#pragma once 
-#include <vk_types.h>
+#include "vk_types.h"
+#include "will_engine.h"
+#include <vk_initializers.h>
 
 namespace vkutil {
     bool load_shader_module(const char* filePath, VkDevice device, VkShaderModule* outShaderModule);

@@ -1,20 +1,6 @@
-﻿//> includes
-#include "vk_engine.h"
+﻿#include "vk_engine.h"
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_vulkan.h>
-
-#include <imgui/imgui.h>
-#include <imgui/backends/imgui_impl_sdl2.h>
-#include <imgui/backends/imgui_impl_vulkan.h>
-
-
-#include <vk_initializers.h>
-#include <vk_types.h>
-#include <vk_images.h>
-#include <vk_pipelines.h>
-
-
+// defined here because needs implementation in translation unit
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image/stb_image.h>
 #include <stb_image/stb_image_write.h>
@@ -22,15 +8,7 @@
 #define VMA_IMPLEMENTATION
 #include <vma/vk_mem_alloc.h>
 
-#ifndef GLM_ENABLE_EXPERIMENTAL
-#define GLM_ENABLE_EXPERIMENTAL
-#endif
-#include <glm/gtx/transform.hpp>
 
-#include <chrono>
-#include <thread>
-
-#include <vkbootstrap/VkBootstrap.h>
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -703,55 +681,71 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
 	vkCmdBeginRendering(cmd, &renderInfo);
 
+	MaterialPipeline* lastPipeline = nullptr;
+	MaterialInstance* lastMaterial = nullptr;
+	VkBuffer lastIndexBuffer = VK_NULL_HANDLE;
+
 	auto draw = [&](const RenderObject& draw) {
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
-		// Dynamic States
-		{
-			//  Viewport
-			VkViewport viewport = {};
-			viewport.x = 0;
-			viewport.y = 0;
-			viewport.width = _drawExtent.width;
-			viewport.height = _drawExtent.height;
-			viewport.minDepth = 0.f;
-			viewport.maxDepth = 1.f;
-			vkCmdSetViewport(cmd, 0, 1, &viewport);
-			//  Scissor
-			VkRect2D scissor = {};
-			scissor.offset.x = 0;
-			scissor.offset.y = 0;
-			scissor.extent.width = _drawExtent.width;
-			scissor.extent.height = _drawExtent.height;
-			vkCmdSetScissor(cmd, 0, 1, &scissor);
+		if (draw.material != lastMaterial) {
+			if (draw.material->pipeline != lastPipeline) {
+				lastPipeline = draw.material->pipeline;
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
+				// Dynamic States
+				{
+					//  Viewport
+					VkViewport viewport = {};
+					viewport.x = 0;
+					viewport.y = 0;
+					viewport.width = _drawExtent.width;
+					viewport.height = _drawExtent.height;
+					viewport.minDepth = 0.f;
+					viewport.maxDepth = 1.f;
+					vkCmdSetViewport(cmd, 0, 1, &viewport);
+					//  Scissor
+					VkRect2D scissor = {};
+					scissor.offset.x = 0;
+					scissor.offset.y = 0;
+					scissor.extent.width = _drawExtent.width;
+					scissor.extent.height = _drawExtent.height;
+					vkCmdSetScissor(cmd, 0, 1, &scissor);
+				}
+				VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[3]{};
+				descriptor_buffer_binding_info[0] = gpuSceneDataDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
+				descriptor_buffer_binding_info[1] = draw.material->pipeline->materialTextureDescriptorBuffer->get_descriptor_buffer_binding_info(_device);
+				descriptor_buffer_binding_info[2] = draw.material->pipeline->materialUniformDescriptorBuffer->get_descriptor_buffer_binding_info(_device);
+				vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptor_buffer_binding_info);
+
+				constexpr uint32_t buffer_index_ubo = 0;
+				VkDeviceSize global_buffer_offset = 0;
+				vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout
+					, 0, 1, &buffer_index_ubo, &global_buffer_offset);
+			}
+
+			constexpr uint32_t buffer_index_image = 1;
+			constexpr uint32_t buffer_index_material = 2;
+			VkDeviceSize texture_buffer_offset =
+				draw.material->textureDescriptorBufferIndex * draw.material->pipeline->materialTextureDescriptorBuffer->descriptor_buffer_size;
+			VkDeviceSize uniform_buffer_offset =
+				draw.material->uniformDescriptorBufferIndex * draw.material->pipeline->materialUniformDescriptorBuffer->descriptor_buffer_size;
+
+			vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout
+				, 1, 1, &buffer_index_image, &texture_buffer_offset);
+			vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout
+				, 2, 1, &buffer_index_material, &uniform_buffer_offset);
 		}
-		 
-		VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[3]{};
-		descriptor_buffer_binding_info[0] = gpuSceneDataDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
-		descriptor_buffer_binding_info[1] = draw.material->pipeline->materialTextureDescriptorBuffer->get_descriptor_buffer_binding_info(_device);
-		descriptor_buffer_binding_info[2] = draw.material->pipeline->materialUniformDescriptorBuffer->get_descriptor_buffer_binding_info(_device);
-		vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptor_buffer_binding_info);
-		uint32_t buffer_index_ubo = 0;
-		uint32_t buffer_index_image = 1;
-		uint32_t buffer_index_material = 2;
-		VkDeviceSize global_buffer_offset = 0;
-		VkDeviceSize texture_buffer_offset = draw.material->textureDescriptorBufferIndex * draw.material->pipeline->materialTextureDescriptorBuffer->descriptor_buffer_size;
-		VkDeviceSize uniform_buffer_offset = draw.material->uniformDescriptorBufferIndex * draw.material->pipeline->materialUniformDescriptorBuffer->descriptor_buffer_size;
+		
+		
 
-		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout
-			, 0, 1, &buffer_index_ubo, &global_buffer_offset);
-		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout
-			, 1, 1, &buffer_index_image, &texture_buffer_offset);
-		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout
-			, 2, 1, &buffer_index_material, &uniform_buffer_offset);
-
-		vkCmdBindIndexBuffer(cmd, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		if (draw.indexBuffer != lastIndexBuffer) {
+			lastIndexBuffer = draw.indexBuffer;
+			vkCmdBindIndexBuffer(cmd, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		}
 
 		GPUDrawPushConstants pushConstants;
 		pushConstants.vertexBuffer = draw.vertexBufferAddress;
 		pushConstants.modelMatrix = draw.transform;
 		pushConstants.invTransposeModelMatrix = glm::transpose(glm::inverse(glm::mat3(draw.transform)));
 		vkCmdPushConstants(cmd, draw.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
-
 		vkCmdDrawIndexed(cmd, draw.indexCount, 1, draw.firstIndex, 0, 0);
 
 
@@ -759,6 +753,23 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 		stats.drawcall_count++;
 		stats.triangle_count += draw.indexCount / 3;
 	};
+
+	std::vector<uint32_t> opaque_draws;
+	opaque_draws.reserve(mainDrawContext.OpaqueSurfaces.size());
+	for (uint32_t i = 0; i < mainDrawContext.OpaqueSurfaces.size(); i++) {
+		opaque_draws.push_back(i);
+	}
+	// sort the opaque surfaces by material and mesh
+	std::sort(opaque_draws.begin(), opaque_draws.end(), [&](const auto& iA, const auto& iB) {
+		const RenderObject& A = mainDrawContext.OpaqueSurfaces[iA];
+		const RenderObject& B = mainDrawContext.OpaqueSurfaces[iB];
+		if (A.material == B.material) {
+			return A.indexBuffer < B.indexBuffer;
+		}
+		else {
+			return A.material < B.material;
+		}
+		});
 
 	for (auto& r : mainDrawContext.OpaqueSurfaces) {
 		draw(r);

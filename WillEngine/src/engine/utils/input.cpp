@@ -1,12 +1,7 @@
-#include <input_manager.h>
-#include <iostream>
+#include "input.h"
 
 InputManager InputManager::instance;
-
-InputManager& InputManager::Get()
-{
-	return instance;
-}
+InputManager& InputManager::Get(){ return instance; }
 
 bool InputManager::isKeyPressed(Key key)
 {

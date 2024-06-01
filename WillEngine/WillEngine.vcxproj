@@ -105,7 +105,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>D:\VulkanSDK\1.3.283.0\Include;framework;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src/engine/core;src/engine/vulkan;src/engine/utils;src/engine;D:\VulkanSDK\1.3.283.0\Include;include</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -152,46 +152,39 @@ compile_shaders.sh</Command>
     <ClCompile Include="include\imgui\imgui_draw.cpp" />
     <ClCompile Include="include\imgui\imgui_tables.cpp" />
     <ClCompile Include="include\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="include\vkbootstrap\VkBootstrap.cpp" />
-    <ClCompile Include="src\camera.cpp" />
+    <ClCompile Include="src\engine\core\acceleration_structures.cpp" />
+    <ClCompile Include="src\engine\core\camera.cpp" />
+    <ClCompile Include="src\engine\main.cpp" />
+    <ClCompile Include="src\engine\utils\input.cpp" />
+    <ClCompile Include="src\engine\utils\time_util.cpp" />
+    <ClCompile Include="src\engine\vulkan\vk_descriptors.cpp" />
+    <ClCompile Include="src\engine\vulkan\vk_descriptor_buffer.cpp" />
+    <ClCompile Include="src\engine\vulkan\vk_engine.cpp" />
+    <ClCompile Include="src\engine\vulkan\vk_images.cpp" />
+    <ClCompile Include="src\engine\vulkan\vk_initializers.cpp" />
+    <ClCompile Include="src\engine\vulkan\vk_loader.cpp" />
+    <ClCompile Include="src\engine\vulkan\vk_pipelines.cpp" />
     <ClCompile Include="src\fastgltf\base64.cpp" />
     <ClCompile Include="src\fastgltf\fastgltf.cpp" />
     <ClCompile Include="src\fastgltf\fastgltf.ixx" />
     <ClCompile Include="src\fastgltf\io.cpp" />
-    <ClCompile Include="src\input_manager.cpp" />
-    <ClCompile Include="src\libraryTests.cpp" />
-    <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\simdjson\simdjson.cpp" />
-    <ClCompile Include="src\time_util.cpp" />
-    <ClCompile Include="src\vk_descriptors.cpp" />
-    <ClCompile Include="src\vk_descriptor_buffer.cpp" />
-    <ClCompile Include="src\vk_engine.cpp" />
-    <ClCompile Include="src\vk_images.cpp" />
-    <ClCompile Include="src\vk_initializers.cpp" />
-    <ClCompile Include="src\vk_loader.cpp" />
-    <ClCompile Include="src\vk_pipelines.cpp" />
+    <ClCompile Include="src\vkbootstrap\VkBootstrap.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\camera.h" />
-    <ClInclude Include="include\imgui\imconfig.h" />
-    <ClInclude Include="include\imgui\imgui.h" />
-    <ClInclude Include="include\imgui\imgui_internal.h" />
-    <ClInclude Include="include\imgui\imstb_rectpack.h" />
-    <ClInclude Include="include\imgui\imstb_textedit.h" />
-    <ClInclude Include="include\imgui\imstb_truetype.h" />
-    <ClInclude Include="include\input_manager.h" />
-    <ClInclude Include="include\libraryTests.h" />
-    <ClInclude Include="include\simdjson.h" />
-    <ClInclude Include="include\time_util.h" />
-    <ClInclude Include="include\vk_descriptors.h" />
-    <ClInclude Include="include\vk_descriptor_buffer.h" />
-    <ClInclude Include="include\vk_engine.h" />
-    <ClInclude Include="include\vk_images.h" />
-    <ClInclude Include="include\vk_initializers.h" />
-    <ClInclude Include="include\vk_loader.h" />
-    <ClInclude Include="include\vk_pipelines.h" />
-    <ClInclude Include="include\vk_types.h" />
-    <ClInclude Include="include\willEngine.h" />
+    <ClInclude Include="src\engine\core\acceleration_structures.h" />
+    <ClInclude Include="src\engine\core\camera.h" />
+    <ClInclude Include="src\engine\utils\input.h" />
+    <ClInclude Include="src\engine\utils\time_util.h" />
+    <ClInclude Include="src\engine\vulkan\vk_descriptors.h" />
+    <ClInclude Include="src\engine\vulkan\vk_descriptor_buffer.h" />
+    <ClInclude Include="src\engine\vulkan\vk_engine.h" />
+    <ClInclude Include="src\engine\vulkan\vk_images.h" />
+    <ClInclude Include="src\engine\vulkan\vk_initializers.h" />
+    <ClInclude Include="src\engine\vulkan\vk_loader.h" />
+    <ClInclude Include="src\engine\vulkan\vk_pipelines.h" />
+    <ClInclude Include="src\engine\vulkan\vk_types.h" />
+    <ClInclude Include="src\engine\will_engine.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="compile_shaders.sh" />

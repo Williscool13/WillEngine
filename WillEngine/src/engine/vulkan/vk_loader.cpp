@@ -1,19 +1,6 @@
-﻿#include <stb_image/stb_image.h>
-#include <iostream>
-#include <vk_loader.h>
-
-#include "vk_engine.h"
-#include "vk_initializers.h"
-#include "vk_types.h"
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/quaternion.hpp>
+﻿#include <vk_loader.h>
 
 
-#include <fastgltf/glm_element_traits.hpp>
-#include <fastgltf/core.hpp>
-//#include <fastgltf/parser.hpp>
-#include <fastgltf/tools.hpp>
 
 VkFilter extract_filter(fastgltf::Filter filter)
 {
@@ -45,139 +32,6 @@ VkSamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter)
 	default:
 		return VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	}
-}
-
-
-std::optional<std::vector<std::shared_ptr<MeshAsset>>> loadGltfMeshes(VulkanEngine* engine, std::filesystem::path filePath)
-{
-	fmt::print("Loading GLTF: {}\n", filePath.string());
-
-	if (!std::filesystem::exists(filePath.string())) {
-		fmt::print("Failed to find file: {}\n", filePath.string());
-		return {};
-	}
-	else {
-		fmt::print("Found file: {}\n", filePath.string());
-	}
-
-	fastgltf::Asset gltf;
-	fastgltf::Parser parser;
-	fastgltf::GltfDataBuffer data;
-
-	data.FromPath(filePath);
-
-	auto gltfFile = fastgltf::MappedGltfFile::FromPath(filePath);
-	if (!bool(gltfFile)) { fmt::print("Failed to open glTF file: {}\n", fastgltf::getErrorMessage(gltfFile.error())); return {}; }
-
-
-	constexpr auto gltfOptions = fastgltf::Options::LoadExternalBuffers;
-	auto load = parser.loadGltfBinary(gltfFile.get(), filePath.parent_path(), gltfOptions);
-
-	if (load.error() != fastgltf::Error::None) {
-		fmt::print("Failed to load glTF: {} \n", fastgltf::to_underlying(load.error()));
-		return {};
-	}
-
-	gltf = std::move(load.get());
-
-
-	std::vector<std::shared_ptr<MeshAsset>> meshes;
-
-	// use the same vectors for all meshes so that the memory doesnt reallocate as
-	// often
-	std::vector<uint32_t> indices;
-	std::vector<Vertex> vertices;
-	for (fastgltf::Mesh& mesh : gltf.meshes) {
-		MeshAsset newmesh;
-
-		newmesh.name = mesh.name;
-
-		// clear the mesh arrays each mesh, we dont want to merge them by error
-		indices.clear();
-		vertices.clear();
-
-		fmt::print("Mesh {} has {} primitives\n", mesh.name, mesh.primitives.size());
-		for (auto&& p : mesh.primitives) {
-			GeoSurface newSurface;
-			newSurface.startIndex = (uint32_t)indices.size();
-			newSurface.count = (uint32_t)gltf.accessors[p.indicesAccessor.value()].count;
-
-			size_t initial_vtx = vertices.size();
-
-			// load indexes
-			{
-				fastgltf::Accessor& indexaccessor = gltf.accessors[p.indicesAccessor.value()];
-				indices.reserve(indices.size() + indexaccessor.count);
-
-				fastgltf::iterateAccessor<std::uint32_t>(gltf, indexaccessor,
-					[&](std::uint32_t idx) {
-						indices.push_back(idx + initial_vtx);
-					});
-			}
-
-			// load vertex positions
-			{
-				fastgltf::Accessor& posAccessor = gltf.accessors[p.findAttribute("POSITION")->second];
-				vertices.resize(vertices.size() + posAccessor.count);
-
-				fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, posAccessor,
-					[&](glm::vec3 v, size_t index) {
-						Vertex newvtx;
-						newvtx.position = v;
-						newvtx.normal = { 1, 0, 0 };
-						newvtx.color = glm::vec4{ 1.f };
-						newvtx.uv_x = 0;
-						newvtx.uv_y = 0;
-						vertices[initial_vtx + index] = newvtx;
-					});
-			}
-
-			// load vertex normals
-			auto normals = p.findAttribute("NORMAL");
-			if (normals != p.attributes.end()) {
-
-				fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, gltf.accessors[(*normals).second],
-					[&](glm::vec3 v, size_t index) {
-						vertices[initial_vtx + index].normal = v;
-					});
-			}
-
-			// load UVs
-			auto uv = p.findAttribute("TEXCOORD_0");
-			if (uv != p.attributes.end()) {
-
-				fastgltf::iterateAccessorWithIndex<glm::vec2>(gltf, gltf.accessors[(*uv).second],
-					[&](glm::vec2 v, size_t index) {
-						vertices[initial_vtx + index].uv_x = v.x;
-						vertices[initial_vtx + index].uv_y = v.y;
-					});
-			}
-
-			// load vertex colors
-			auto colors = p.findAttribute("COLOR_0");
-			if (colors != p.attributes.end()) {
-
-				fastgltf::iterateAccessorWithIndex<glm::vec4>(gltf, gltf.accessors[(*colors).second],
-					[&](glm::vec4 v, size_t index) {
-						vertices[initial_vtx + index].color = v;
-					});
-			}
-			newmesh.surfaces.push_back(newSurface);
-		}
-
-		// display the vertex normals
-		constexpr bool OverrideColors = false;
-		if (OverrideColors) {
-			for (Vertex& vtx : vertices) {
-				vtx.color = glm::vec4(vtx.normal, 1.f);
-			}
-		}
-		newmesh.meshBuffers = engine->uploadMesh(indices, vertices);
-
-		meshes.emplace_back(std::make_shared<MeshAsset>(std::move(newmesh)));
-	}
-
-	return meshes;
 }
 
 std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image)
@@ -330,7 +184,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::s
 			// we failed to load, so lets give the slot a default white texture to not
 			// completely break loading
 			images.push_back(engine->_errorCheckerboardImage);
-			std::cout << "gltf failed to load texture " << image.name << std::endl;
 		}
 	}
 

@@ -3,13 +3,21 @@
 
 #pragma once
 
-#include <vk_types.h>
+#include "vk_types.h"
+#include "will_engine.h"
+
 #include <vk_descriptors.h>
 #include <vk_loader.h>
 #include <vk_descriptor_buffer.h>
+#include <vk_initializers.h>
+#include <vk_images.h>
+#include <vk_pipelines.h>
 #include <camera.h>
 
 constexpr unsigned int FRAME_OVERLAP = 2;
+
+struct MeshAsset;
+struct LoadedGLTF;
 
 struct DeletionQueue
 {
@@ -28,7 +36,6 @@ struct DeletionQueue
 		deletors.clear();
 	}
 };
-
 
 struct ComputePushConstants {
 	glm::vec4 data1;
@@ -73,7 +80,6 @@ struct EngineStats {
 	float mesh_draw_time;
 };
 
-
 struct MeshNode : public Node {
 
 	std::shared_ptr<MeshAsset> mesh;
@@ -97,7 +103,7 @@ struct DrawContext {
 	std::vector<RenderObject> TransparentSurfaces;
 };
 
-
+class VulkanEngine;
 
 struct GLTFMetallic_Roughness {
 	// 2x pipelines
@@ -267,8 +273,3 @@ private:
 	void create_swapchain(uint32_t width, uint32_t height);
 	void destroy_swapchain();
 };
-
-
-
-
-

@@ -1,9 +1,13 @@
 ﻿#pragma once
-
-#include <vk_types.h>
-#include <unordered_map>
-#include <filesystem>
-
+#include "vk_types.h"
+#include "will_engine.h"
+#include "vk_engine.h"
+// implementation in vk_Engine.cpp
+#include <stb_image/stb_image.h>
+// only used here
+#include <fastgltf/glm_element_traits.hpp>
+#include <fastgltf/core.hpp>
+#include <fastgltf/tools.hpp>
 
 
 struct GLTFMaterial {
@@ -25,27 +29,18 @@ struct MeshAsset {
 };
 
 
-//forward declaration
 class VulkanEngine;
 
 
 struct LoadedGLTF : public IRenderable {
-
     // storage for all the data on a given glTF file
     std::unordered_map<std::string, std::shared_ptr<MeshAsset>> meshes;
     std::unordered_map<std::string, std::shared_ptr<Node>> nodes;
     std::unordered_map<std::string, AllocatedImage> images;
     std::unordered_map<std::string, std::shared_ptr<GLTFMaterial>> materials;
-
     // nodes that dont have a parent, for iterating through the file in tree order
     std::vector<std::shared_ptr<Node>> topNodes;
-
     std::vector<VkSampler> samplers;
-
-    //DescriptorAllocatorGrowable descriptorPool;
-
-    //AllocatedBuffer materialDataBuffer;
-
     VulkanEngine* creator;
 
     ~LoadedGLTF() { clearAll(); };

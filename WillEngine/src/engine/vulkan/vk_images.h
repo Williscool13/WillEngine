@@ -1,5 +1,7 @@
 #pragma once
-#include <vulkan/vulkan.h>
+#include "vk_types.h"
+#include "will_engine.h"
+#include <vk_initializers.h>
 
 namespace vkutil {
 	void transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout);
