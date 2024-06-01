@@ -7,6 +7,7 @@
 #include <vk_descriptors.h>
 #include <vk_loader.h>
 #include <vk_descriptor_buffer.h>
+#include <camera.h>
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
@@ -64,6 +65,15 @@ struct FrameData {
 	DeletionQueue _deletionQueue;
 };
 
+struct EngineStats {
+	float frametime;
+	int triangle_count;
+	int drawcall_count;
+	float scene_update_time;
+	float mesh_draw_time;
+};
+
+
 struct MeshNode : public Node {
 
 	std::shared_ptr<MeshAsset> mesh;
@@ -84,6 +94,7 @@ struct RenderObject {
 
 struct DrawContext {
 	std::vector<RenderObject> OpaqueSurfaces;
+	std::vector<RenderObject> TransparentSurfaces;
 };
 
 
@@ -114,7 +125,6 @@ struct GLTFMetallic_Roughness {
 		VkSampler metalRoughSampler;
 		AllocatedBuffer dataBuffer;
 		uint32_t dataBufferSize;
-		uint32_t dataBufferOffset;
 	};
 
 	//DescriptorWriter writer;
@@ -126,17 +136,13 @@ struct GLTFMetallic_Roughness {
 	
 
 	MaterialInstance write_material(
-		VulkanEngine* engine
+		VkDevice device
 		, MaterialPass pass
 		, const MaterialResources& resources
 	);
 
 	void destroy(VkDevice device, VmaAllocator allocator);
 };
-
-
-
-
 
 class VulkanEngine {
 public:
@@ -151,17 +157,19 @@ public:
 	bool resize_requested{ false };
 
 	VkExtent2D _windowExtent{ 1700 , 900 };
-
 	struct SDL_Window* _window{ nullptr };
 
 	static VulkanEngine& Get();
+
+	Camera mainCamera;
+	bool mouseLocked{ true };
+	EngineStats stats;
 
 	VkInstance _instance;
 	VkDebugUtilsMessengerEXT _debug_messenger;
 	VkPhysicalDevice _physicalDevice;
 	VkDevice _device;
 	VkSurfaceKHR _surface;
-	VkDevice _oldDevice;
 	VmaAllocator _allocator;
 
 	// Global Lifetime Deletion Queue
@@ -239,11 +247,8 @@ public:
 	VkDescriptorSetLayout gpuSceneDataDescriptorBufferSetLayout;
 	DescriptorBufferUniform gpuSceneDataDescriptorBuffer;
 	AllocatedBuffer gpuSceneDataBuffer;
-	float distBetween{ 0.65f };
-	int targetMesh { 2 };
-
-	std::vector<std::shared_ptr<MeshAsset>> meshes;
-	std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
+	float globalModelScale{ 1.0f };
+	std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
 	void update_scene();
 
 private:
@@ -257,7 +262,7 @@ private:
 	void init_pipelines();
 	void init_compute_pipelines();
 
-	void init_data();
+	void init_default_data();
 
 	void create_swapchain(uint32_t width, uint32_t height);
 	void destroy_swapchain();

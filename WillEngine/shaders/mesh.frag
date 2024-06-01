@@ -11,13 +11,12 @@ layout (location = 0) out vec4 outFragColor;
 
 void main() 
 {
-	float lightValue = max(dot(inNormal, sceneData.sunlightDirection.xyz), 0.1f);
-	//vec3 color = inColor * texture(sampler2D(colorI, colorS), inUV).xyz;
-	vec3 color = texture(sampler2D(colorI, colorS), inUV).xyz;
-	vec3 metal = texture(sampler2D(metalI, metalS), inUV).xyz;
-	//color += dummy;
+	// light calculations done in world space (normal interpolated in WS)
+	float lightValue = max(dot(normalize(inNormal), sceneData.sunlightDirection.xyz), 0.1f);
+	vec3 color = inColor * texture(sampler2D(colorI, colorS), inUV).xyz;
+	//vec3 metal = texture(sampler2D(metalI, metalS), inUV).xyz;
+
 	vec3 ambient = color *  sceneData.ambientColor.xyz;
 
-	//outFragColor = vec4(color * lightValue *  sceneData.sunlightColor.w + ambient ,1.0f);
-	outFragColor = vec4(color, 1.0f);
-}
+	outFragColor = vec4(color * lightValue *  sceneData.sunlightColor.w + ambient ,1.0f);
+} 

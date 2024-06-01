@@ -21,6 +21,6 @@ void main()
 	//outFragColor = vec4(inColor,1.0f);
 	
 	//outFragColor = texture(displayTexture2,inUV);
-	outFragColor = texture(sampler2D(colorTexture,colorSampler),inUV);
+	outFragColor = texture(sampler2D(colorI,colorS),inUV);
 
 }

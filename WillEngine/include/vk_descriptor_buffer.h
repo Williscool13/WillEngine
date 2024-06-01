@@ -9,16 +9,18 @@ public:
 		, VmaAllocator allocator, VkDescriptorSetLayout descriptor_set_layout, int maxObjectCount = 10);
 
 	void destroy(VkDevice device, VmaAllocator allocator);
+	void free_descriptor_buffer(int index);
 
 	VkDeviceSize descriptor_buffer_size;
 	VkDeviceSize descriptor_buffer_offset;
 
 protected:
-	inline VkDeviceSize aligned_size(VkDeviceSize value, VkDeviceSize alignment);
-	inline VkDeviceAddress get_device_address(VkDevice device, VkBuffer buffer);
+	VkDeviceSize aligned_size(VkDeviceSize value, VkDeviceSize alignment);
+	VkDeviceAddress get_device_address(VkDevice device, VkBuffer buffer);
 
 	// buffer w/ layout specified by descriptorSetLayout
 	AllocatedBuffer descriptor_buffer;
+	VkDeviceAddress descriptor_buffer_gpu_address;
 	VkDescriptorSetLayout descriptor_set_layout;
 	
 	// total size of layout is at least sum of all bindings

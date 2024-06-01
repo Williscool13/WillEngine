@@ -54,6 +54,11 @@ void DescriptorBuffer::destroy(VkDevice device, VmaAllocator allocator) {
 	if (is_buffer_mapped) { vmaDestroyBuffer(allocator, descriptor_buffer.buffer, descriptor_buffer.allocation); }
 }
 
+void DescriptorBuffer::free_descriptor_buffer(int index)
+{
+	free_indices.push(index);
+}
+
 VkDeviceSize DescriptorBuffer::aligned_size(VkDeviceSize value, VkDeviceSize alignment) {
 	return (value + alignment - 1) & ~(alignment - 1);
 }
@@ -90,6 +95,7 @@ DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice d
 		, &descriptor_buffer.allocation
 		, &descriptor_buffer.info));
 
+	descriptor_buffer_gpu_address = get_device_address(device, descriptor_buffer.buffer);
 	buffer_ptr = descriptor_buffer.info.pMappedData;
 	is_buffer_mapped = true;
 }
@@ -230,11 +236,11 @@ void DescriptorBufferSampler::set_data(VkDevice device, std::vector<std::pair<Vk
 
 VkDescriptorBufferBindingInfoEXT DescriptorBufferSampler::get_descriptor_buffer_binding_info(VkDevice device)
 {
-	VkDeviceAddress address = get_device_address(device, descriptor_buffer.buffer);
+	//VkDeviceAddress address = get_device_address(device, descriptor_buffer.buffer);
 
 	VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{};
 	descriptor_buffer_binding_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
-	descriptor_buffer_binding_info.address = address;
+	descriptor_buffer_binding_info.address = this->descriptor_buffer_gpu_address;
 	descriptor_buffer_binding_info.usage
 		= VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
 
@@ -262,6 +268,7 @@ DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice d
 		, &descriptor_buffer.allocation
 		, &descriptor_buffer.info));
 
+	descriptor_buffer_gpu_address = get_device_address(device, descriptor_buffer.buffer);
 	buffer_ptr = descriptor_buffer.info.pMappedData;
 	is_buffer_mapped = true;
 }
@@ -308,11 +315,11 @@ int DescriptorBufferUniform::setup_data(VkDevice device, const AllocatedBuffer& 
 }
 
 VkDescriptorBufferBindingInfoEXT DescriptorBufferUniform::get_descriptor_buffer_binding_info(VkDevice device) {
-	VkDeviceAddress address = get_device_address(device, descriptor_buffer.buffer);
+	//VkDeviceAddress address = get_device_address(device, descriptor_buffer.buffer);
 
 	VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{};
 	descriptor_buffer_binding_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
-	descriptor_buffer_binding_info.address = address;
+	descriptor_buffer_binding_info.address = this->descriptor_buffer_gpu_address;
 	descriptor_buffer_binding_info.usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
 
 	return descriptor_buffer_binding_info;

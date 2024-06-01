@@ -34,11 +34,11 @@
     <Filter Include="Shaders\include">
       <UniqueIdentifier>{192fcfe0-d4c5-4694-8f87-773614070efa}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Utils">
+      <UniqueIdentifier>{af7161df-500d-4290-9e0f-528a2b0dd881}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\libraryTests.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="include\imgui\imgui_tables.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
@@ -81,9 +81,6 @@
     <ClCompile Include="src\vk_pipelines.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\camera.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -105,14 +102,20 @@
     <ClCompile Include="src\vk_descriptor_buffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\input_manager.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\time_util.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\camera.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libraryTests.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\libraryTests.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\willEngine.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\vk_engine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -129,9 +132,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\vk_types.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\simdjson.h">
@@ -160,6 +160,21 @@
     </ClInclude>
     <ClInclude Include="include\vk_descriptor_buffer.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\input_manager.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\time_util.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\camera.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\libraryTests.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\willEngine.h">
+      <Filter>Utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

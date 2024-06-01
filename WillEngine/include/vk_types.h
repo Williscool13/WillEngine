@@ -11,6 +11,7 @@
 #include <functional>
 #include <deque>
 #include <stack>
+#include <variant>
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -24,6 +25,8 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
 
+#include <time_util.h>
+#include <input_manager.h>
 
 struct AllocatedImage {
 	VkImage image;
@@ -59,9 +62,10 @@ struct GPUMeshBuffers {
 
 // push constants for our mesh object draws
 struct GPUDrawPushConstants {
-	glm::mat4 worldMatrix;
+	glm::mat4 modelMatrix;
+	glm::mat3x4 invTransposeModelMatrix; // hard coded to 3x4 to match GLSL std140 layout
 	VkDeviceAddress vertexBuffer;
-};
+}; 
 
 
 // Material Structure

@@ -8,18 +8,24 @@
 #include <imgui/backends/imgui_impl_sdl2.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 
-#define VMA_IMPLEMENTATION
-#include <vma/vk_mem_alloc.h>
 
 #include <vk_initializers.h>
 #include <vk_types.h>
 #include <vk_images.h>
 #include <vk_pipelines.h>
 
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image/stb_image.h>
+#include <stb_image/stb_image_write.h>
+
+#define VMA_IMPLEMENTATION
+#include <vma/vk_mem_alloc.h>
+
+#ifndef GLM_ENABLE_EXPERIMENTAL
 #define GLM_ENABLE_EXPERIMENTAL
+#endif
 #include <glm/gtx/transform.hpp>
-
-
 
 #include <chrono>
 #include <thread>
@@ -27,13 +33,13 @@
 #include <vkbootstrap/VkBootstrap.h>
 
 #ifdef NDEBUG
-#define useValidationLayers false
+#define USE_VALIDATION_LAYERS false
 #else
-#define useValidationLayers true
+#define USE_VALIDATION_LAYERS true
 #endif
 
 
-bool bUseValidationLayers = true;
+//bool bUseValidationLayers = true;
 
 VulkanEngine* loadedEngine = nullptr;
 
@@ -48,7 +54,7 @@ void VulkanEngine::init()
 {
 	// We initialize SDL and create a window with it.
 	SDL_Init(SDL_INIT_VIDEO);
-
+	SDL_SetRelativeMouseMode(SDL_TRUE);
 	SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
 	_window = SDL_CreateWindow(
@@ -58,6 +64,9 @@ void VulkanEngine::init()
 		_windowExtent.width,
 		_windowExtent.height,
 		window_flags);
+
+	TimeUtil::Get().init();
+	InputManager::Get().init();
 
 	init_vulkan();
 
@@ -73,7 +82,14 @@ void VulkanEngine::init()
 
 	init_dearimgui();
 
-	init_data();
+	init_default_data();
+
+	std::string structurePath = { "assets\\models\\structure.glb" };
+	auto structureFile = loadGltf(this, structurePath);
+	assert(structureFile.has_value());
+	loadedScenes["structure"] = *structureFile;
+	mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
+	mainCamera.yaw = -90.0f;
 
 	_isInitialized = true;
 
@@ -86,7 +102,7 @@ void VulkanEngine::init_vulkan()
 
 	// make the vulkan instance, with basic debug features
 	auto inst_ret = builder.set_app_name("Will's Vulkan Renderer")
-		.request_validation_layers(bUseValidationLayers)
+		.request_validation_layers(USE_VALIDATION_LAYERS)
 		.use_default_debug_messenger()
 		.require_api_version(1, 3)
 		.build();
@@ -114,6 +130,14 @@ void VulkanEngine::init_vulkan()
 	features12.bufferDeviceAddress = true;
 	features12.descriptorIndexing = true;
 
+	// Descriptor Buffer Extension
+	VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBufferFeatures = {};
+	descriptorBufferFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT;
+	descriptorBufferFeatures.pNext = nullptr;
+	descriptorBufferFeatures.descriptorBuffer = VK_TRUE;
+	descriptorBufferFeatures.descriptorBufferCaptureReplay = VK_FALSE;
+	descriptorBufferFeatures.descriptorBufferImageLayoutIgnored = VK_FALSE;
+
 	// select gpu
 	vkb::PhysicalDeviceSelector selector{ vkb_inst };
 	vkb::PhysicalDevice targetDevice = selector
@@ -126,42 +150,18 @@ void VulkanEngine::init_vulkan()
 		.value();
 	
 	vkb::DeviceBuilder deviceBuilder{ targetDevice };
+	deviceBuilder.add_pNext(&descriptorBufferFeatures);
 	vkb::Device vkbDevice = deviceBuilder.build().value();
 
 	_device = vkbDevice.device;
 	_physicalDevice = targetDevice.physical_device;
 
-
-	// EXTENSION
-	VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBufferFeatures = {};
-	descriptorBufferFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT;
-	descriptorBufferFeatures.pNext = nullptr;
-	descriptorBufferFeatures.descriptorBuffer = VK_TRUE;
-	descriptorBufferFeatures.descriptorBufferCaptureReplay = VK_FALSE;
-	descriptorBufferFeatures.descriptorBufferImageLayoutIgnored = VK_FALSE;
-
-	VkPhysicalDeviceFeatures2 deviceFeatures2 = {};
-	deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-	deviceFeatures2.pNext = &descriptorBufferFeatures;
-
-	vkGetPhysicalDeviceFeatures2(_physicalDevice, &deviceFeatures2);
-	auto deviceResult = deviceBuilder.add_pNext(&descriptorBufferFeatures)
-		.build();
-
-	_device = deviceResult.value().device;
-	_physicalDevice = deviceResult.value().physical_device;
-
-	_graphicsQueue = deviceResult.value().get_queue(vkb::QueueType::graphics).value();
-	_graphicsQueueFamily = deviceResult.value().get_queue_index(vkb::QueueType::graphics).value();
-	// END EXTENSION
-	_oldDevice = vkbDevice.device; // save old device (for deletion later)
-
 	vkCmdBindDescriptorBuffersEXT = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetDeviceProcAddr(_device, "vkCmdBindDescriptorBuffersEXT");
 	vkCmdSetDescriptorBufferOffsetsEXT = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetDeviceProcAddr(_device, "vkCmdSetDescriptorBufferOffsetsEXT");
 
 	// Graphics Queue
-	//_graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
-	//_graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+	_graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
+	_graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
 	
 
 
@@ -363,46 +363,18 @@ void VulkanEngine::init_descriptors()
 #pragma endregion
 }
 
-float camera_dist = 5.0f;
 void VulkanEngine::update_scene()
 {
+	auto start = std::chrono::system_clock::now();
+
 	mainDrawContext.OpaqueSurfaces.clear();
+	mainDrawContext.TransparentSurfaces.clear();
 
-	for (int x = 1; x < 7; x++) {
-		float scaleValue = x * 0.1f;
-
-		glm::mat4 model = glm::mat4(1.f);
-		glm::mat4 scale = glm::scale(glm::vec3{ scaleValue });
-		glm::mat4 rot1 = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0, 0, 1));
-
-		Uint64 ticks = SDL_GetTicks();
-		int rotTime = 1000 * 8;
-		rotTime *= scaleValue;
-		int r = ticks % rotTime;
-		float rot = r / float(rotTime) * 360.0f;
-		glm::mat4 rot2 = glm::rotate(glm::mat4(1.0f), glm::radians(rot), glm::vec3(0, 1, 0));
-
-		float dist = 0;
-		for (int y = x - 1; y > 0; y--) { dist += y; }
-		glm::mat4 translation = glm::translate(glm::vec3{ -5 + dist * distBetween, 1, 0 });
-
-		model = translation *  rot2 * rot1 * scale;
-
-		switch (targetMesh) {
-		case 0:
-			loadedNodes["Suzanne"]->Draw(model, mainDrawContext);
-			break;
-		case 1:
-			loadedNodes["Cube"]->Draw(model, mainDrawContext);
-			break;
-		case 2:
-			loadedNodes["Sphere"]->Draw(model, mainDrawContext);
-			break;
-		}
-	}
-
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, camera_dist), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+	mainCamera.update();
+	glm::mat4 view = mainCamera.getViewMatrix();
+	//glm::mat4 view = glm::lookAt(glm::vec3(0, 0, camera_dist), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(70.0f), (float)_windowExtent.width / (float)_windowExtent.height, 10000.0f, 0.1f);
+	proj[1][1] *= -1;
 	sceneData.view = view;
 	sceneData.proj = proj;
 	sceneData.viewproj = sceneData.proj * sceneData.view;
@@ -415,13 +387,20 @@ void VulkanEngine::update_scene()
 	// writing directly, if larger data, use staging buffer
 	GPUSceneData* sceneUniformData = (GPUSceneData*)gpuSceneDataBuffer.allocation->GetMappedData();
 	memcpy(sceneUniformData, &sceneData, sizeof(GPUSceneData));
+
+	glm::mat4 structures_model = glm::scale(glm::vec3(globalModelScale));
+	loadedScenes["structure"]->Draw(structures_model, mainDrawContext);
+
+
+	auto end = std::chrono::system_clock::now();
+	auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	stats.scene_update_time = elapsed.count() / 1000.f;
 }
 
 
 void VulkanEngine::init_pipelines()
 {
 	init_compute_pipelines();
-
 	metallicRoughnessPipelines.build_pipelines(this);
 
 	_mainDeletionQueue.push_function([&]() {
@@ -562,9 +541,8 @@ void VulkanEngine::init_compute_pipelines()
 		});
 }
 
-void VulkanEngine::init_data()
+void VulkanEngine::init_default_data()
 {
-
 #pragma region Basic Textures
 	//3 default textures, white, grey, black. 1 pixel each
 	uint32_t white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));
@@ -616,10 +594,10 @@ void VulkanEngine::init_data()
 #pragma region Default Material
 	GLTFMetallic_Roughness::MaterialResources materialResources;
 	//default the material textures
-	materialResources.colorImage = _errorCheckerboardImage;
+	materialResources.colorImage = _whiteImage;
 	materialResources.colorSampler = _defaultSamplerLinear;
-	materialResources.metalRoughImage = _errorCheckerboardImage;
-	materialResources.metalRoughSampler = _defaultSamplerNearest; 
+	materialResources.metalRoughImage = _whiteImage;
+	materialResources.metalRoughSampler = _defaultSamplerLinear; 
 
 	//set the uniform buffer for the material data
 	AllocatedBuffer materialConstants = 
@@ -629,7 +607,7 @@ void VulkanEngine::init_data()
 
 	// Not modified in current build
 	GLTFMetallic_Roughness::MaterialConstants* sceneUniformData = 
-		(GLTFMetallic_Roughness::MaterialConstants*)materialConstants.allocation->GetMappedData();
+		(GLTFMetallic_Roughness::MaterialConstants*)materialConstants.info.pMappedData;
 	sceneUniformData->colorFactors = glm::vec4{ 1,1,1,1 };
 	sceneUniformData->metal_rough_factors = glm::vec4{ 1,0.5,0,0 };
 
@@ -639,37 +617,12 @@ void VulkanEngine::init_data()
 
 	materialResources.dataBuffer = materialConstants;
 	materialResources.dataBufferSize = sizeof(GLTFMetallic_Roughness::MaterialConstants);
-	materialResources.dataBufferOffset = 0;
+	//materialResources.dataBufferOffset = 0;
 
 	defaultOpaqueMaterial = metallicRoughnessPipelines.write_material(
-		this, MaterialPass::MainColor, materialResources);
+		_device, MaterialPass::MainColor, materialResources);
 
 #pragma endregion
-
-#pragma region Load Meshes into node structure
-	meshes = loadGltfMeshes(this, "assets/models/basicmesh.glb").value();
-	for (auto& mesh : meshes) {
-		_mainDeletionQueue.push_function([=]() {
-			destroy_buffer(mesh->meshBuffers.vertexBuffer);
-			destroy_buffer(mesh->meshBuffers.indexBuffer);
-			});
-	}
-
-	for (auto& m : meshes) {
-		std::shared_ptr<MeshNode> newNode = std::make_shared<MeshNode>();
-		newNode->mesh = m;
-
-		newNode->localTransform = glm::mat4{ 1.f };
-		newNode->worldTransform = glm::mat4{ 1.f };
-		   
-		for (auto& s : newNode->mesh->surfaces) {
-			s.material = std::make_shared<GLTFMaterial>(defaultOpaqueMaterial);
-		}
-
-		loadedNodes[m->name] = std::move(newNode); 
-	}
-#pragma endregion
-
 }
 
 // Creation Order (cleaned up in opposite order)
@@ -679,11 +632,11 @@ void VulkanEngine::init_data()
 void VulkanEngine::cleanup()
 {
 	if (_isInitialized) {
-
+		SDL_SetRelativeMouseMode(SDL_FALSE);
 		vkDeviceWaitIdle(_device);
+		loadedScenes.clear();
+
 		_mainDeletionQueue.flush();
-
-
 
 		for (int i = 0; i < FRAME_OVERLAP; i++) {
 			vkDestroyCommandPool(_device, _frames[i]._commandPool, nullptr);
@@ -698,7 +651,6 @@ void VulkanEngine::cleanup()
 
 		vkDestroySurfaceKHR(_instance, _surface, nullptr);
 		vkDestroyDevice(_device, nullptr);
-		vkDestroyDevice(_oldDevice, nullptr);
 
 
 		vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
@@ -727,24 +679,32 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
 	VkDeviceSize buffer_offset = 0;
 
 	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _backgroundEffectPipelineLayout
-		, 0, 1, &buffer_index_image, &buffer_offset);
+		, 0, 1, &buffer_index_image, &buffer_offset); 
 
 
 	// Execute at 8x8 thread groups
 	vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 8.0), std::ceil(_drawExtent.height / 8.0), 1);
+
+
 }
 
 void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 {
+	//reset counters
+	stats.drawcall_count = 0;
+	stats.triangle_count = 0;
+	//begin clock
+	auto start = std::chrono::system_clock::now();
+
+
 	VkClearValue depthClearValue = { 0.0f, 0 };
 	VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_GENERAL);
 	VkRenderingAttachmentInfo depthAttachment = vkinit::attachment_info(_depthImage.imageView, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
 	vkCmdBeginRendering(cmd, &renderInfo);
 
-	for (const RenderObject& draw : mainDrawContext.OpaqueSurfaces) {
+	auto draw = [&](const RenderObject& draw) {
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
-
 		// Dynamic States
 		{
 			//  Viewport
@@ -764,12 +724,12 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 			scissor.extent.height = _drawExtent.height;
 			vkCmdSetScissor(cmd, 0, 1, &scissor);
 		}
-
+		 
 		VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[3]{};
 		descriptor_buffer_binding_info[0] = gpuSceneDataDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
 		descriptor_buffer_binding_info[1] = draw.material->pipeline->materialTextureDescriptorBuffer->get_descriptor_buffer_binding_info(_device);
 		descriptor_buffer_binding_info[2] = draw.material->pipeline->materialUniformDescriptorBuffer->get_descriptor_buffer_binding_info(_device);
-		vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptor_buffer_binding_info); 
+		vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptor_buffer_binding_info);
 		uint32_t buffer_index_ubo = 0;
 		uint32_t buffer_index_image = 1;
 		uint32_t buffer_index_material = 2;
@@ -778,25 +738,40 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 		VkDeviceSize uniform_buffer_offset = draw.material->uniformDescriptorBufferIndex * draw.material->pipeline->materialUniformDescriptorBuffer->descriptor_buffer_size;
 
 		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout
-				, 0, 1, &buffer_index_ubo, &global_buffer_offset);
+			, 0, 1, &buffer_index_ubo, &global_buffer_offset);
 		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout
-				, 1, 1, &buffer_index_image, &texture_buffer_offset);
+			, 1, 1, &buffer_index_image, &texture_buffer_offset);
 		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout
-				, 2, 1, &buffer_index_material, &uniform_buffer_offset);
+			, 2, 1, &buffer_index_material, &uniform_buffer_offset);
 
 		vkCmdBindIndexBuffer(cmd, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 		GPUDrawPushConstants pushConstants;
 		pushConstants.vertexBuffer = draw.vertexBufferAddress;
-		pushConstants.worldMatrix = draw.transform;
+		pushConstants.modelMatrix = draw.transform;
+		pushConstants.invTransposeModelMatrix = glm::transpose(glm::inverse(glm::mat3(draw.transform)));
 		vkCmdPushConstants(cmd, draw.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
 
 		vkCmdDrawIndexed(cmd, draw.indexCount, 1, draw.firstIndex, 0, 0);
+
+
+		//add counters for triangles and draws
+		stats.drawcall_count++;
+		stats.triangle_count += draw.indexCount / 3;
+	};
+
+	for (auto& r : mainDrawContext.OpaqueSurfaces) {
+		draw(r);
+	}
+	for (auto& r : mainDrawContext.TransparentSurfaces) {
+		draw(r);
 	}
 
-
-
 	vkCmdEndRendering(cmd);
+
+	auto end = std::chrono::system_clock::now();
+	auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	stats.mesh_draw_time = elapsed.count() / 1000.f;
 }
 
 void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -839,6 +814,7 @@ void VulkanEngine::draw()
 	draw_background(cmd);
 	vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
 	draw_geometry(cmd);
 
 	// copy _drawImage onto _swapchainImage
@@ -897,9 +873,15 @@ void VulkanEngine::run()
 	// main loop
 	while (!bQuit) {
 		// Handle events on queue
-		while (SDL_PollEvent(&e) != 0) {
-			if (e.type == SDL_QUIT || (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)) { bQuit = true; }
+		 //begin clock
+		auto start = std::chrono::system_clock::now();
 
+		InputManager::Get().frame_reset();
+
+		while (SDL_PollEvent(&e) != 0) {
+			if (e.type == SDL_QUIT) { bQuit = true; continue; }
+			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_r) { SDL_SetRelativeMouseMode(SDL_FALSE); }
+			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_t) { SDL_SetRelativeMouseMode(SDL_TRUE); }
 			if (e.type == SDL_WINDOWEVENT) {
 				if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
 					stop_rendering = true;
@@ -909,9 +891,32 @@ void VulkanEngine::run()
 				}
 			}
 
+			InputManager::Get().update(&e);
+
 			// imgui input handling
 			ImGui_ImplSDL2_ProcessEvent(&e);
 		}
+
+		// Delta Time
+		TimeUtil::Get().update();
+
+
+		Uint32 windowFlags = SDL_GetWindowFlags(_window);
+		bool isWindowInFocus = (windowFlags & SDL_WINDOW_INPUT_FOCUS) != 0;
+
+		if (InputManager::Get().isKeyPressed(InputManager::Key::ESCAPE)) {
+			if (mouseLocked) { SDL_SetRelativeMouseMode(SDL_FALSE); mouseLocked = false; }
+			else { bQuit = true; continue; }
+		}
+
+		if (!mouseLocked && isWindowInFocus && InputManager::Get().isMousePressed(InputManager::MouseKey::RIGHT)) {
+			SDL_SetRelativeMouseMode(SDL_TRUE); 
+			mouseLocked = true;
+		}
+
+		
+		// Camera Input Handling
+		mainCamera.processSDLEvent(isWindowInFocus && mouseLocked);
 
 		if (resize_requested) {
 			resize_swapchain();
@@ -928,8 +933,6 @@ void VulkanEngine::run()
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
 
-		//some imgui UI to test
-		//ImGui::ShowDemoWindow();
 		ImGui::NewFrame();
 
 		if (ImGui::Begin("background")) {
@@ -939,7 +942,6 @@ void VulkanEngine::run()
 			ImGui::Text("Selected effect: ", selected.name);
 
 			ImGui::SliderInt("Effect Index", &currentBackgroundEffect, 0, backgroundEffects.size() - 1);
-			ImGui::SliderInt("Model", &targetMesh, 0, 2);
 
 			ImGui::InputFloat4("data1", (float*)&selected._data.data1);
 			ImGui::InputFloat4("data2", (float*)&selected._data.data2);
@@ -947,44 +949,33 @@ void VulkanEngine::run()
 
 			ImGui::SliderFloat("Render Scale", &_renderScale, 0.1f, _maxRenderScale);
 
-			ImGui::SliderFloat("Distance Between", &distBetween, 0.1f, 2.0f);
+			ImGui::SliderFloat("Model Scale", &globalModelScale, 0.1f, 20.0f);
 
-			ImGui::SliderFloat("Camera Distance", &camera_dist, 1.0f, 10.0f);
-
-			if (ImGui::Button("Change Texture Fail")) {
-				mainDrawContext.OpaqueSurfaces[0].material->colorDescriptorImageInfo.imageView 
-					= _whiteImage.imageView;
+			if (ImGui::BeginChild("Stats")) {
+				ImGui::Text("frametime %f ms", stats.frametime);
+				ImGui::Text("draw time %f ms", stats.mesh_draw_time);
+				ImGui::Text("update time %f ms", stats.scene_update_time);
+				ImGui::Text("triangles %i", stats.triangle_count);
+				ImGui::Text("draws %i", stats.drawcall_count);
 			}
 
-			if (ImGui::Button("Change Texture")) {
+			ImGui::EndChild();
 
-				VkDescriptorImageInfo colorCombinedDescriptor{};
-				colorCombinedDescriptor.sampler = _defaultSamplerNearest;
-				colorCombinedDescriptor.imageView = _whiteImage.imageView; 
-				colorCombinedDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-				VkDescriptorImageInfo metalRoughCombinedDescriptor{};
-				metalRoughCombinedDescriptor.sampler = _defaultSamplerLinear;
-				metalRoughCombinedDescriptor.imageView = _errorCheckerboardImage.imageView;
-				metalRoughCombinedDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-				// needs to match the order of the bindings in the layout
-				std::vector<std::pair<VkDescriptorType, VkDescriptorImageInfo>> combined_descriptor = {
-					{ VK_DESCRIPTOR_TYPE_SAMPLER, colorCombinedDescriptor },
-					{ VK_DESCRIPTOR_TYPE_SAMPLER, metalRoughCombinedDescriptor },
-					{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, colorCombinedDescriptor },
-					{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, metalRoughCombinedDescriptor} 
-				};
-				
-				metallicRoughnessPipelines.materialTextureDescriptorBuffer.set_data(_device, combined_descriptor, 0);
-			}
-				
-
-			ImGui::End();
 		}
+		ImGui::End();
 		ImGui::Render();
 
 		draw();
+
+
+		//everything else
+
+			//get clock again, compare with start clock
+		auto end = std::chrono::system_clock::now();
+
+		//convert to microseconds (integer), and then come back to miliseconds
+		auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+		stats.frametime = elapsed.count() / 1000.f;
 	}
 }
 
@@ -1231,12 +1222,13 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 	}
 
+
 	// Defining Descriptor Buffers
 	{
 		materialTextureDescriptorBuffer = DescriptorBufferSampler(engine->_instance, engine->_device
-			, engine->_physicalDevice, engine->_allocator, materialTextureLayout, 10);
+			, engine->_physicalDevice, engine->_allocator, materialTextureLayout, 50);
 		materialUniformDescriptorBuffer = DescriptorBufferUniform(engine->_instance, engine->_device
-			, engine->_physicalDevice, engine->_allocator, materialUniformLayout, 10);
+			, engine->_physicalDevice, engine->_allocator, materialUniformLayout, 50);
 	}
 
 	pipeline_layout_initialized = true;
@@ -1302,7 +1294,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 }
 
 MaterialInstance GLTFMetallic_Roughness::write_material(
-	VulkanEngine* engine
+	VkDevice device
 	, MaterialPass pass
 	, const MaterialResources& resources
 ) {
@@ -1345,26 +1337,13 @@ MaterialInstance GLTFMetallic_Roughness::write_material(
 	matData.materialUniformBuffer			 = resources.dataBuffer;
 
 
-	
+	matData.textureDescriptorBufferIndex = matData.pipeline->materialTextureDescriptorBuffer->setup_data(
+		device, combined_descriptor
+	);
+	matData.uniformDescriptorBufferIndex = matData.pipeline->materialUniformDescriptorBuffer->setup_data(
+		device, resources.dataBuffer, resources.dataBufferSize
+	);
 
-
-	if (pass == MaterialPass::Transparent) {
-		matData.textureDescriptorBufferIndex = transparentPipeline.materialTextureDescriptorBuffer->setup_data(
-			engine->_device, combined_descriptor
-		);
-		matData.uniformDescriptorBufferIndex = transparentPipeline.materialUniformDescriptorBuffer->setup_data(
-			engine->_device, resources.dataBuffer, resources.dataBufferSize
-		);
-	}
-	else {
-		matData.textureDescriptorBufferIndex = opaquePipeline.materialTextureDescriptorBuffer->setup_data(
-			engine->_device, combined_descriptor
-		);
-		matData.uniformDescriptorBufferIndex = opaquePipeline.materialUniformDescriptorBuffer->setup_data(
-			engine->_device, resources.dataBuffer, resources.dataBufferSize
-		);
-	}
-	
 
 
 	return matData;
@@ -1400,7 +1379,12 @@ void MeshNode::Draw(const glm::mat4& topMatrix, DrawContext& ctx)
 		def.transform = nodeMatrix;
 		def.vertexBufferAddress = mesh->meshBuffers.vertexBufferAddress;
 
-		ctx.OpaqueSurfaces.push_back(def);
+		if (s.material->data.passType == MaterialPass::Transparent) {
+			ctx.TransparentSurfaces.push_back(def);
+		}
+		else {
+			ctx.OpaqueSurfaces.push_back(def);
+		}
 	}
 
 	// recurse down

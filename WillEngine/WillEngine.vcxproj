@@ -158,9 +158,11 @@ compile_shaders.sh</Command>
     <ClCompile Include="src\fastgltf\fastgltf.cpp" />
     <ClCompile Include="src\fastgltf\fastgltf.ixx" />
     <ClCompile Include="src\fastgltf\io.cpp" />
+    <ClCompile Include="src\input_manager.cpp" />
     <ClCompile Include="src\libraryTests.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\simdjson\simdjson.cpp" />
+    <ClCompile Include="src\time_util.cpp" />
     <ClCompile Include="src\vk_descriptors.cpp" />
     <ClCompile Include="src\vk_descriptor_buffer.cpp" />
     <ClCompile Include="src\vk_engine.cpp" />
@@ -177,8 +179,10 @@ compile_shaders.sh</Command>
     <ClInclude Include="include\imgui\imstb_rectpack.h" />
     <ClInclude Include="include\imgui\imstb_textedit.h" />
     <ClInclude Include="include\imgui\imstb_truetype.h" />
+    <ClInclude Include="include\input_manager.h" />
     <ClInclude Include="include\libraryTests.h" />
     <ClInclude Include="include\simdjson.h" />
+    <ClInclude Include="include\time_util.h" />
     <ClInclude Include="include\vk_descriptors.h" />
     <ClInclude Include="include\vk_descriptor_buffer.h" />
     <ClInclude Include="include\vk_engine.h" />

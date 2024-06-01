@@ -157,42 +157,42 @@ void sdlTestSTBImage() {
     }
 
     // Load the image using STB Image
-    int width, height, channels;
-    unsigned char* image_data = stbi_load(testImagePath, &width, &height, &channels, STBI_rgb_alpha);
-    if (image_data == nullptr) {
-        // Handle image loading error
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return;
-    }
+    //int width, height, channels;
+    //unsigned char* image_data = stbi_load(testImagePath, &width, &height, &channels, STBI_rgb_alpha);
+    //if (image_data == nullptr) {
+    //    // Handle image loading error
+    //    SDL_DestroyRenderer(renderer);
+    //    SDL_DestroyWindow(window);
+    //    SDL_Quit();
+    //    return;
+    //}
 
-    // Create an SDL texture from the loaded image data
-    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(image_data, width, height, 32, width * 4, SDL_PIXELFORMAT_RGBA32);
-    if (surface == nullptr) {
-        // Handle surface creation error
-        stbi_image_free(image_data);
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return;
-    }
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    if (texture == nullptr) {
-        // Handle texture creation error
-        stbi_image_free(image_data);
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return;
-    }
+    //// Create an SDL texture from the loaded image data
+    //SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(image_data, width, height, 32, width * 4, SDL_PIXELFORMAT_RGBA32);
+    //if (surface == nullptr) {
+    //    // Handle surface creation error
+    //    stbi_image_free(image_data);
+    //    SDL_DestroyRenderer(renderer);
+    //    SDL_DestroyWindow(window);
+    //    SDL_Quit();
+    //    return;
+    //}
+    //SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    //SDL_FreeSurface(surface);
+    //if (texture == nullptr) {
+    //    // Handle texture creation error
+    //    stbi_image_free(image_data);
+    //    SDL_DestroyRenderer(renderer);
+    //    SDL_DestroyWindow(window);
+    //    SDL_Quit();
+    //    return;
+    //}
 
     // Clear the renderer
     SDL_RenderClear(renderer);
 
     // Render the texture onto the renderer
-    SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+    //SDL_RenderCopy(renderer, texture, nullptr, nullptr);
 
     // Update the renderer
     SDL_RenderPresent(renderer);
@@ -214,10 +214,10 @@ void sdlTestSTBImage() {
     }
 
     // Cleanup SDL
-    SDL_DestroyTexture(texture);
+    //SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    stbi_image_free(image_data);
+    //stbi_image_free(image_data);
     SDL_Quit();
 }
 
