@@ -53,7 +53,7 @@ class DescriptorBufferUniform;
 class DescriptorBufferSampler;
 class ShaderObject;
 struct MaterialPipeline {
-	VkPipeline pipeline;
+	//VkPipeline pipeline;
 	ShaderObject* shaderObject;
 	VkPipelineLayout layout;
 	DescriptorBufferSampler* materialTextureDescriptorBuffer;
@@ -61,7 +61,8 @@ struct MaterialPipeline {
 };
 
 struct MaterialInstance {
-	MaterialPipeline* pipeline;
+	//MaterialPipeline* pipeline;
+	ShaderObject* shaderObject;
 	// descriptor properties
 	VkDescriptorImageInfo colorDescriptorImageInfo;
 	VkDescriptorImageInfo metalRoughDescriptorImageInfo;

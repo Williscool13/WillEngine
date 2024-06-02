@@ -418,8 +418,8 @@ void LoadedGLTF::clearAll()
 	VkDevice dv = creator->_device;
 
 	for (auto& [k, v] : materials) {
-		v->data.pipeline->materialTextureDescriptorBuffer->free_descriptor_buffer(v->data.textureDescriptorBufferIndex);
-		v->data.pipeline->materialUniformDescriptorBuffer->free_descriptor_buffer(v->data.uniformDescriptorBufferIndex);
+		v->data.shaderObject->materialTextureDescriptorBuffer->free_descriptor_buffer(v->data.textureDescriptorBufferIndex);
+		v->data.shaderObject->materialUniformDescriptorBuffer->free_descriptor_buffer(v->data.uniformDescriptorBufferIndex);
 		creator->destroy_buffer(v->data.materialUniformBuffer);
 	}
 

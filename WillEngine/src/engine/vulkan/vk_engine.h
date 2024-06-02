@@ -107,8 +107,8 @@ class VulkanEngine;
 
 struct GLTFMetallic_Roughness {
 	// 2x pipelines
-	MaterialPipeline opaquePipeline;
-	MaterialPipeline transparentPipeline;
+	ShaderObject opaquePipeline;
+	ShaderObject transparentPipeline;
 	VkPipelineLayout pipelineLayout;
 
 	bool pipeline_layout_initialized = false;
@@ -230,8 +230,6 @@ public:
 	VkCommandBuffer _immCommandBuffer;
 	VkCommandPool _immCommandPool;
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
-
-	ShaderObject testPipeline{};
 	
 	// Textures
 	AllocatedImage _whiteImage;
@@ -266,7 +264,6 @@ private:
 	void init_sync_structures();
 	void init_descriptors();
 	void init_dearimgui();
-	void init_test(VulkanEngine* engine);
 
 	void init_pipelines();
 	void init_compute_pipelines();

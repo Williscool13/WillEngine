@@ -58,8 +58,6 @@ void VulkanEngine::init()
 
 	init_default_data();
 
-	init_test(this);
-
 	std::string structurePath = { "assets\\models\\structure.glb" };
 	auto structureFile = loadGltf(this, structurePath);
 	assert(structureFile.has_value());
@@ -690,7 +688,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	MaterialInstance* lastMaterial = nullptr;
 	VkBuffer lastIndexBuffer = VK_NULL_HANDLE;
 
-	auto draw = [&](const RenderObject& draw) {
+	/*auto draw = [&](const RenderObject& draw) {
 		if (draw.material != lastMaterial) {
 			if (draw.material->pipeline != lastPipeline) {
 				lastPipeline = draw.material->pipeline;
@@ -757,7 +755,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 		//add counters for triangles and draws
 		stats.drawcall_count++;
 		stats.triangle_count += draw.indexCount / 3;
-	};
+	};*/
 
 	std::vector<uint32_t> opaque_draws;
 	opaque_draws.reserve(mainDrawContext.OpaqueSurfaces.size());
@@ -782,16 +780,17 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	for (auto& r : mainDrawContext.TransparentSurfaces) {
 		draw(r);
 	}*/
-	testPipeline.bind_viewport(cmd, _drawExtent.width, _drawExtent.height, 0.0f, 1.0f);
-	testPipeline.bind_scissor(cmd, 0, 0, _drawExtent.width, _drawExtent.height);
-	testPipeline.bind_rasterizaer_discard(cmd, VK_FALSE);
-	testPipeline.bind_input_assembly(cmd);
-	testPipeline.bind_rasterization(cmd);
-	testPipeline.bind_depth_test(cmd);
-	testPipeline.bind_stencil(cmd);
-	testPipeline.bind_multisampling(cmd);
-	testPipeline.bind_blending(cmd);
-	testPipeline.bind_shaders(cmd);
+
+	metallicRoughnessPipelines.opaquePipeline.bind_viewport(cmd, _drawExtent.width, _drawExtent.height, 0.0f, 1.0f);
+	metallicRoughnessPipelines.opaquePipeline.bind_scissor(cmd, 0, 0, _drawExtent.width, _drawExtent.height);
+	metallicRoughnessPipelines.opaquePipeline.bind_rasterizaer_discard(cmd, VK_FALSE);
+	metallicRoughnessPipelines.opaquePipeline.bind_input_assembly(cmd);
+	metallicRoughnessPipelines.opaquePipeline.bind_rasterization(cmd);
+	metallicRoughnessPipelines.opaquePipeline.bind_depth_test(cmd);
+	metallicRoughnessPipelines.opaquePipeline.bind_stencil(cmd);
+	metallicRoughnessPipelines.opaquePipeline.bind_multisampling(cmd);
+	metallicRoughnessPipelines.opaquePipeline.bind_blending(cmd);
+	metallicRoughnessPipelines.opaquePipeline.bind_shaders(cmd);
 
 	VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[3]{};
 	descriptor_buffer_binding_info[0] = gpuSceneDataDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
@@ -806,12 +805,12 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	for (auto& d : mainDrawContext.OpaqueSurfaces) {	
 		constexpr uint32_t buffer_index_image = 1;
 		constexpr uint32_t buffer_index_material = 2;
-		VkDeviceSize texture_buffer_offset = d.material->textureDescriptorBufferIndex * d.material->pipeline->materialTextureDescriptorBuffer->descriptor_buffer_size;
-		VkDeviceSize uniform_buffer_offset = d.material->uniformDescriptorBufferIndex * d.material->pipeline->materialUniformDescriptorBuffer->descriptor_buffer_size;
+		VkDeviceSize texture_buffer_offset = d.material->textureDescriptorBufferIndex * d.material->shaderObject->materialTextureDescriptorBuffer->descriptor_buffer_size;
+		VkDeviceSize uniform_buffer_offset = d.material->uniformDescriptorBufferIndex * d.material->shaderObject->materialUniformDescriptorBuffer->descriptor_buffer_size;
 
-		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, d.material->pipeline->layout
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, d.material->shaderObject->_pipelineLayout
 			, 1, 1, &buffer_index_image, &texture_buffer_offset);
-		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, d.material->pipeline->layout
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, d.material->shaderObject->_pipelineLayout
 			, 2, 1, &buffer_index_material, &uniform_buffer_offset);
 
 		vkCmdBindIndexBuffer(cmd, d.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
@@ -819,7 +818,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 		pushConstants.vertexBuffer = d.vertexBufferAddress;
 		pushConstants.modelMatrix = d.transform;
 		pushConstants.invTransposeModelMatrix = glm::transpose(glm::inverse(glm::mat3(d.transform)));
-		vkCmdPushConstants(cmd, d.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+		vkCmdPushConstants(cmd, d.material->shaderObject->_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
 		vkCmdDrawIndexed(cmd, d.indexCount, 1, d.firstIndex, 0, 0);
 	}
 
@@ -1242,73 +1241,6 @@ void VulkanEngine::destroy_image(const AllocatedImage& img)
 
 
 
-void VulkanEngine::init_test(VulkanEngine* engine)
-{
-	testPipeline = {};
-	testPipeline.prepare(_device);
-	testPipeline.setup_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-	testPipeline.setup_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-	testPipeline.disable_multisampling();
-	testPipeline.setup_blending(ShaderObject::BlendMode::NO_BLEND);
-	testPipeline.enable_depthtesting(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
-	VkPushConstantRange matrixRange{};
-	matrixRange.offset = 0;
-	matrixRange.size = sizeof(GPUDrawPushConstants);
-	matrixRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-
-	testPipeline._descriptorSetLayout[0] = engine->gpuSceneDataDescriptorBufferSetLayout;
-	{
-		DescriptorLayoutBuilder layoutBuilder;
-		layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		testPipeline._descriptorSetLayout[1] = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-	}
-	{
-		DescriptorLayoutBuilder layoutBuilder;
-		layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_SAMPLER);
-		layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_SAMPLER);
-		layoutBuilder.add_binding(2, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
-		layoutBuilder.add_binding(3, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
-
-
-		testPipeline._descriptorSetLayout[2] = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_FRAGMENT_BIT
-			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-	}
-	{
-		testPipeline.materialTextureDescriptorBuffer = DescriptorBufferSampler(engine->_instance, engine->_device
-			, engine->_physicalDevice, engine->_allocator, testPipeline._descriptorSetLayout[1], 50);
-		testPipeline.materialUniformDescriptorBuffer = DescriptorBufferUniform(engine->_instance, engine->_device
-			, engine->_physicalDevice, engine->_allocator, testPipeline._descriptorSetLayout[2], 50);
-	}
-
-	testPipeline._stages[0] = VK_SHADER_STAGE_VERTEX_BIT;
-	testPipeline._stages[1] = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-	VkDescriptorSetLayout layouts[] = {
-	engine->gpuSceneDataDescriptorBufferSetLayout
-	, metallicRoughnessPipelines.materialTextureLayout
-	, metallicRoughnessPipelines.materialUniformLayout
-	};
-
-	vkutil::create_shader_objects(
-		"shaders/mesh.vert.spv", "shaders/mesh.frag.spv"
-		, _device, testPipeline._shaders
-		, 3, layouts//testPipeline._descriptorSetLayout
-		, 1, &matrixRange
-	);
-
-
-	VkPipelineLayoutCreateInfo mesh_layout_info = vkinit::pipeline_layout_create_info();
-	mesh_layout_info.setLayoutCount = 3;
-	mesh_layout_info.pSetLayouts = testPipeline._descriptorSetLayout;
-	mesh_layout_info.pushConstantRangeCount = 1;
-	mesh_layout_info.pPushConstantRanges = &matrixRange;
-
-	//VkPipelineLayout newLayout;
-	VK_CHECK(vkCreatePipelineLayout(engine->_device, &mesh_layout_info, nullptr, &testPipeline._pipelineLayout));
-}
 
 #pragma region PIPELINES
 void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
@@ -1373,27 +1305,30 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 	VkPipelineLayout newLayout;
 	VK_CHECK(vkCreatePipelineLayout(engine->_device, &mesh_layout_info, nullptr, &newLayout));
 
-	opaquePipeline.layout = newLayout;
-	transparentPipeline.layout = newLayout;
+	opaquePipeline = {};
+	transparentPipeline = {};
+	opaquePipeline._pipelineLayout = newLayout;
+	transparentPipeline._pipelineLayout = newLayout;
 	pipelineLayout = newLayout;
 
-	// build the stage-create-info for both vertex and fragment stages. This lets
-	// the pipeline know the shader modules per stage
-	PipelineBuilder pipelineBuilder;
-	pipelineBuilder.set_shaders(meshVertexShader, meshFragShader);
-	pipelineBuilder.setup_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-	pipelineBuilder.setup_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-	pipelineBuilder.disable_multisampling();
-	pipelineBuilder.setup_blending(PipelineBuilder::BlendMode::NO_BLEND);
-	pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-	//render format
-	pipelineBuilder.setup_renderer(engine->_drawImage.imageFormat, engine->_depthImage.imageFormat);
+	
+	opaquePipeline.prepare(engine->_device);
+	opaquePipeline.setup_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	opaquePipeline.setup_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+	opaquePipeline.disable_multisampling();
+	opaquePipeline.setup_blending(ShaderObject::BlendMode::NO_BLEND);
+	opaquePipeline.enable_depthtesting(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
-	// use the triangle layout we created
-	pipelineBuilder._pipelineLayout = newLayout;
 
-	// finally build the pipeline
-	opaquePipeline.pipeline = pipelineBuilder.build_pipeline(engine->_device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+	opaquePipeline._stages[0] = VK_SHADER_STAGE_VERTEX_BIT;
+	opaquePipeline._stages[1] = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	vkutil::create_shader_objects(
+		"shaders/mesh.vert.spv", "shaders/mesh.frag.spv"
+		, engine->_device, opaquePipeline._shaders
+		, 3, layouts
+		, 1, &matrixRange
+	);
 
 	// Opaque Pipeline Descriptor Buffer Pointer
 	{
@@ -1401,13 +1336,23 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 		opaquePipeline.materialUniformDescriptorBuffer = &materialUniformDescriptorBuffer;
 	}
 
-	// create the transparent variant
-	pipelineBuilder.setup_blending(PipelineBuilder::BlendMode::ADDITIVE_BLEND);
-
-	pipelineBuilder.enable_depthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
-	transparentPipeline.pipeline = pipelineBuilder.build_pipeline(engine->_device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+	transparentPipeline.prepare(engine->_device);
+	transparentPipeline.setup_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	transparentPipeline.setup_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+	transparentPipeline.disable_multisampling();
+	transparentPipeline.setup_blending(ShaderObject::BlendMode::ADDITIVE_BLEND);
+	transparentPipeline.enable_depthtesting(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
 	
+
+	transparentPipeline._stages[0] = VK_SHADER_STAGE_VERTEX_BIT;
+	transparentPipeline._stages[1] = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	vkutil::create_shader_objects(
+		"shaders/mesh.vert.spv", "shaders/mesh.frag.spv"
+		, engine->_device, transparentPipeline._shaders
+		, 3, layouts
+		, 1, &matrixRange
+	);
 	// Transparent Pipeline Descriptor Buffer Creation
 	{
 		transparentPipeline.materialTextureDescriptorBuffer = &materialTextureDescriptorBuffer;
@@ -1431,10 +1376,10 @@ MaterialInstance GLTFMetallic_Roughness::write_material(
 	MaterialInstance matData;
 	matData.passType = pass;
 	if (pass == MaterialPass::Transparent) {
-		matData.pipeline = &transparentPipeline;
+		matData.shaderObject = &transparentPipeline;
 	}
 	else {
-		matData.pipeline = &opaquePipeline;
+		matData.shaderObject = &opaquePipeline;
 	}
 
 	VkDescriptorImageInfo colorCombinedDescriptor{};
@@ -1462,10 +1407,10 @@ MaterialInstance GLTFMetallic_Roughness::write_material(
 	matData.materialUniformBuffer			 = resources.dataBuffer;
 
 
-	matData.textureDescriptorBufferIndex = matData.pipeline->materialTextureDescriptorBuffer->setup_data(
+	matData.textureDescriptorBufferIndex = matData.shaderObject->materialTextureDescriptorBuffer->setup_data(
 		device, combined_descriptor
 	);
-	matData.uniformDescriptorBufferIndex = matData.pipeline->materialUniformDescriptorBuffer->setup_data(
+	matData.uniformDescriptorBufferIndex = matData.shaderObject->materialUniformDescriptorBuffer->setup_data(
 		device, resources.dataBuffer, resources.dataBufferSize
 	);
 
@@ -1482,8 +1427,13 @@ void GLTFMetallic_Roughness::destroy(VkDevice device, VmaAllocator allocator)
 	materialTextureDescriptorBuffer.destroy(device, allocator);
 	materialUniformDescriptorBuffer.destroy(device, allocator);
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-	vkDestroyPipeline(device, opaquePipeline.pipeline, nullptr);
-	vkDestroyPipeline(device, transparentPipeline.pipeline, nullptr);
+	PFN_vkDestroyShaderEXT vkDestroyShaderEXT = reinterpret_cast<PFN_vkDestroyShaderEXT>(vkGetDeviceProcAddr(device, "vkDestroyShaderEXT"));
+	vkDestroyShaderEXT(device, opaquePipeline._shaders[0], nullptr);
+	vkDestroyShaderEXT(device, opaquePipeline._shaders[1], nullptr);
+	vkDestroyShaderEXT(device, transparentPipeline._shaders[0], nullptr);
+	vkDestroyShaderEXT(device, transparentPipeline._shaders[1], nullptr);
+	//vkDestroyPipeline(device, opaquePipeline.pipeline, nullptr);
+	//vkDestroyPipeline(device, transparentPipeline.pipeline, nullptr);
 }
 
 

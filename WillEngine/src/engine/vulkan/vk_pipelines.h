@@ -67,6 +67,8 @@ public:
 
 };
 
+class DescriptorBufferSampler;
+class DescriptorBufferUniform;
 // goal is to be smaller than 368 bytes
 class ShaderObject {
 public:
@@ -76,11 +78,10 @@ public:
         NO_BLEND
     };
 
-    VkDescriptorSetLayout _descriptorSetLayout[3];
     VkDescriptorSetLayout materialTextureLayout;
     VkDescriptorSetLayout materialUniformLayout;
-    DescriptorBufferSampler materialTextureDescriptorBuffer;
-    DescriptorBufferUniform materialUniformDescriptorBuffer;
+    DescriptorBufferSampler* materialTextureDescriptorBuffer;
+    DescriptorBufferUniform* materialUniformDescriptorBuffer;
     VkPipelineLayout _pipelineLayout;
 
 
