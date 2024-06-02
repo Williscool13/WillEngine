@@ -58,6 +58,8 @@ void VulkanEngine::init()
 
 	init_default_data();
 
+	init_test();
+
 	std::string structurePath = { "assets\\models\\structure.glb" };
 	auto structureFile = loadGltf(this, structurePath);
 	assert(structureFile.has_value());
@@ -112,6 +114,10 @@ void VulkanEngine::init_vulkan()
 	descriptorBufferFeatures.descriptorBufferCaptureReplay = VK_FALSE;
 	descriptorBufferFeatures.descriptorBufferImageLayoutIgnored = VK_FALSE;
 
+	VkPhysicalDeviceShaderObjectFeaturesEXT enabledShaderObjectFeaturesEXT{};
+	enabledShaderObjectFeaturesEXT.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT;
+	enabledShaderObjectFeaturesEXT.shaderObject = VK_TRUE;
+
 	// select gpu
 	vkb::PhysicalDeviceSelector selector{ vkb_inst };
 	vkb::PhysicalDevice targetDevice = selector
@@ -119,12 +125,14 @@ void VulkanEngine::init_vulkan()
 		.set_required_features_13(features)
 		.set_required_features_12(features12)
 		.add_required_extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME)
+		.add_required_extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME)
 		.set_surface(_surface)
 		.select()
 		.value();
 	
 	vkb::DeviceBuilder deviceBuilder{ targetDevice };
 	deviceBuilder.add_pNext(&descriptorBufferFeatures);
+	deviceBuilder.add_pNext(&enabledShaderObjectFeaturesEXT);
 	vkb::Device vkbDevice = deviceBuilder.build().value();
 
 	_device = vkbDevice.device;
@@ -437,6 +445,7 @@ void VulkanEngine::init_dearimgui()
 		vkDestroyDescriptorPool(_device, imguiPool, nullptr);
 		});
 }
+
 
 void VulkanEngine::init_compute_pipelines()
 {
@@ -767,11 +776,55 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 		}
 		});
 
-	for (auto& r : mainDrawContext.OpaqueSurfaces) {
+	/*for (auto& r : mainDrawContext.OpaqueSurfaces) {
 		draw(r);
 	}
 	for (auto& r : mainDrawContext.TransparentSurfaces) {
 		draw(r);
+	}*/
+	testPipeline.bind_viewport(cmd, _drawExtent.width, _drawExtent.height, 0.0f, 1.0f);
+	testPipeline.bind_scissor(cmd, 0, 0, _drawExtent.width, _drawExtent.height);
+	testPipeline.bind_rasterizaer_discard(cmd, VK_FALSE);
+	testPipeline.bind_input_assembly(cmd);
+	testPipeline.bind_rasterization(cmd);
+	testPipeline.bind_depth_test(cmd);
+	testPipeline.bind_stencil(cmd);
+	testPipeline.bind_multisampling(cmd);
+	testPipeline.bind_blending(cmd);
+	testPipeline.bind_shaders(cmd, testShaderCount, testStages, testShaders);
+
+
+
+	for (auto& d : mainDrawContext.OpaqueSurfaces) {
+
+		VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[3]{};
+		descriptor_buffer_binding_info[0] = gpuSceneDataDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
+		descriptor_buffer_binding_info[1] = metallicRoughnessPipelines.materialTextureDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
+		descriptor_buffer_binding_info[2] = metallicRoughnessPipelines.materialUniformDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
+		vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptor_buffer_binding_info);
+
+		constexpr uint32_t buffer_index_ubo = 0;
+		VkDeviceSize global_buffer_offset = 0;
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, d.material->pipeline->layout
+			, 0, 1, &buffer_index_ubo, &global_buffer_offset);
+
+		constexpr uint32_t buffer_index_image = 1;
+		constexpr uint32_t buffer_index_material = 2;
+		VkDeviceSize texture_buffer_offset = d.material->textureDescriptorBufferIndex * d.material->pipeline->materialTextureDescriptorBuffer->descriptor_buffer_size;
+		VkDeviceSize uniform_buffer_offset = d.material->uniformDescriptorBufferIndex * d.material->pipeline->materialUniformDescriptorBuffer->descriptor_buffer_size;
+
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, d.material->pipeline->layout
+			, 1, 1, &buffer_index_image, &texture_buffer_offset);
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, d.material->pipeline->layout
+			, 2, 1, &buffer_index_material, &uniform_buffer_offset);
+
+		vkCmdBindIndexBuffer(cmd, d.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		GPUDrawPushConstants pushConstants;
+		pushConstants.vertexBuffer = d.vertexBufferAddress;
+		pushConstants.modelMatrix = d.transform;
+		pushConstants.invTransposeModelMatrix = glm::transpose(glm::inverse(glm::mat3(d.transform)));
+		vkCmdPushConstants(cmd, d.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+		vkCmdDrawIndexed(cmd, d.indexCount, 1, d.firstIndex, 0, 0);
 	}
 
 	vkCmdEndRendering(cmd);
@@ -1191,6 +1244,26 @@ void VulkanEngine::destroy_image(const AllocatedImage& img)
 }
 #pragma endregion
 
+
+
+void VulkanEngine::init_test()
+{
+	testPipeline = {};
+	testPipeline.prepare(_device);
+	testPipeline.setup_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	testPipeline.setup_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+	testPipeline.disable_multisampling();
+	testPipeline.setup_blending(ShaderObjectPipeline::BlendMode::NO_BLEND);
+	testPipeline.enable_depthtesting(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+
+	testDescriptorSetLayout[0] = gpuSceneDataDescriptorBufferSetLayout;
+	testDescriptorSetLayout[1] = metallicRoughnessPipelines.materialTextureLayout;
+	testDescriptorSetLayout[2] = metallicRoughnessPipelines.materialUniformLayout;
+	testStages[0] = VK_SHADER_STAGE_VERTEX_BIT;
+	testStages[1] = VK_SHADER_STAGE_FRAGMENT_BIT;
+	vkutil::load_shader_module(_device, testShaders, testDescriptorSetLayout);
+	int i = 0;
+}
 
 #pragma region PIPELINES
 void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)

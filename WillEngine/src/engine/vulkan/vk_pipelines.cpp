@@ -1,4 +1,4 @@
-﻿#include <vk_pipelines.h>
+﻿#include <vk_pipelines.h	>
 
 
 
@@ -49,6 +49,128 @@ bool vkutil::load_shader_module(const char* filePath,
 	return true;
 }
 
+
+
+void vkutil::load_shader(std::string path, char* &data, size_t &size ) {
+	VkShaderCreateInfoEXT shaderCreateInfo{};
+	// open the file. With cursor at the end
+	std::ifstream file(path, std::ios::ate | std::ios::binary);
+	if (file.is_open()) {
+		size = file.tellg();
+		// put file cursor at beginning
+		file.seekg(0);
+		// load the entire file into the buffer
+		data = new char[size];
+		file.read(data, size);
+		file.close();
+		assert(size > 0);
+	}
+}
+
+void vkutil::create_shader_objects(
+	std::string vertexShader
+	, std::string fragmentShader
+	, VkDevice device
+	, VkShaderEXT* shaders
+	, uint32_t descriptorSetCount
+	, VkDescriptorSetLayout* descriptorLayout
+	, uint32_t pushConstantRangeCount
+	, VkPushConstantRange* pushConstantRanges
+) 
+{
+	VkShaderCreateInfoEXT shaderCreateInfos[2]{};
+	size_t shaderCodeSizes[2]{};
+	char* shaderCodes[2]{};
+
+	vkutil::load_shader(vertexShader, shaderCodes[0], shaderCodeSizes[0]);
+	vkutil::load_shader(fragmentShader, shaderCodes[1], shaderCodeSizes[1]);
+
+	shaderCreateInfos[0].sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT;
+	shaderCreateInfos[0].flags = VK_SHADER_CREATE_LINK_STAGE_BIT_EXT;
+	shaderCreateInfos[0].codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT;
+	shaderCreateInfos[0].pCode = shaderCodes[0];
+	shaderCreateInfos[0].codeSize = shaderCodeSizes[0];
+	shaderCreateInfos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+	shaderCreateInfos[0].nextStage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	shaderCreateInfos[0].pName = "main";
+	shaderCreateInfos[0].setLayoutCount = descriptorSetCount;
+	shaderCreateInfos[0].pSetLayouts = descriptorLayout;
+	shaderCreateInfos[0].pushConstantRangeCount = pushConstantRangeCount;
+	shaderCreateInfos[0].pPushConstantRanges = pushConstantRanges;
+
+	shaderCreateInfos[1].sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT;
+	shaderCreateInfos[1].flags = VK_SHADER_CREATE_LINK_STAGE_BIT_EXT;
+	shaderCreateInfos[1].codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT;
+	shaderCreateInfos[1].pCode = shaderCodes[1];
+	shaderCreateInfos[1].codeSize = shaderCodeSizes[1];
+	shaderCreateInfos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	shaderCreateInfos[1].nextStage = 0;
+	shaderCreateInfos[1].pName = "main";
+	shaderCreateInfos[1].setLayoutCount = descriptorSetCount;
+	shaderCreateInfos[1].pSetLayouts = descriptorLayout;
+	shaderCreateInfos[1].pushConstantRangeCount = pushConstantRangeCount;
+	shaderCreateInfos[1].pPushConstantRanges = pushConstantRanges;
+
+	// TODO: OPTIMIZE THIS
+	PFN_vkCreateShadersEXT vkCreateShadersEXT = reinterpret_cast<PFN_vkCreateShadersEXT>(vkGetDeviceProcAddr(device, "vkCreateShadersEXT"));
+	VK_CHECK(vkCreateShadersEXT(device, 2, shaderCreateInfos, nullptr, shaders));
+
+	delete[] shaderCodes[0];
+	delete[] shaderCodes[1];
+}
+bool vkutil::load_shader_module(VkDevice device, VkShaderEXT* shaders, VkDescriptorSetLayout* descriptorLayout) {
+	std::vector<const char*> shaderPaths = {
+		"shaders/mesh.vert.spv",
+		"shaders/mesh.frag.spv"
+	};
+
+	VkShaderCreateInfoEXT shaderCreateInfos[2]{};
+	size_t shaderCodeSizes[2]{};
+	char* shaderCodes[2]{};
+
+	for (int i = 0; i < 2; i++) {
+
+		// open the file. With cursor at the end
+		std::ifstream file(shaderPaths[i], std::ios::ate | std::ios::binary);
+
+		if (!file.is_open()) {
+			return false;
+		}
+
+		shaderCodeSizes[i] = file.tellg();
+		// put file cursor at beginning
+		file.seekg(0);
+		// load the entire file into the buffer
+		shaderCodes[i] = new char[shaderCodeSizes[i]];
+		file.read(shaderCodes[i], shaderCodeSizes[i]);
+		// now that the file is loaded into the buffer, we can close it
+		file.close();
+
+		//shaderCodes[i] = (char*)buffer.data();
+		//shaderCodeSizes[i] = buffer.size() * sizeof(uint32_t);
+
+		shaderCreateInfos[i].sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT;
+		shaderCreateInfos[i].flags = VK_SHADER_CREATE_LINK_STAGE_BIT_EXT;
+		shaderCreateInfos[i].codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT;
+		shaderCreateInfos[i].pCode = shaderCodes[i];
+		shaderCreateInfos[i].codeSize = shaderCodeSizes[i];
+		shaderCreateInfos[i].pName = "main";
+		shaderCreateInfos[i].setLayoutCount = 3;
+		shaderCreateInfos[i].pSetLayouts = descriptorLayout;
+	}
+
+
+	shaderCreateInfos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	shaderCreateInfos[1].nextStage = 0;
+
+
+	PFN_vkCreateShadersEXT vkCreateShadersEXT = reinterpret_cast<PFN_vkCreateShadersEXT>(vkGetDeviceProcAddr(device, "vkCreateShadersEXT"));
+	VK_CHECK(vkCreateShadersEXT(device, 2, shaderCreateInfos, nullptr, shaders));
+
+	delete[] shaderCodes[0];
+	delete[] shaderCodes[1];
+	return true;
+}
 
 void PipelineBuilder::clear()
 {
@@ -199,7 +321,7 @@ void PipelineBuilder::enable_depthtest(bool depthWriteEnable, VkCompareOp op) {
 void PipelineBuilder::setup_blending(PipelineBuilder::BlendMode mode) {
 	switch (mode) {
 	case BlendMode::ALPHA_BLEND: {
-		_colorBlendAttachment.colorWriteMask = 
+		_colorBlendAttachment.colorWriteMask =
 			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 		_colorBlendAttachment.blendEnable = VK_TRUE;
 		_colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
@@ -211,7 +333,7 @@ void PipelineBuilder::setup_blending(PipelineBuilder::BlendMode mode) {
 		break;
 	}
 	case BlendMode::ADDITIVE_BLEND: {
-		_colorBlendAttachment.colorWriteMask = 
+		_colorBlendAttachment.colorWriteMask =
 			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 		_colorBlendAttachment.blendEnable = VK_TRUE;
 		_colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
@@ -254,5 +376,227 @@ VkPipelineDynamicStateCreateInfo PipelineBuilder::generate_dynamic_states(VkDyna
 	return dynamicInfo;
 }
 
+void ShaderObjectPipeline::prepare(VkDevice device)
+{
+	vkCreateShadersEXT = reinterpret_cast<PFN_vkCreateShadersEXT>(vkGetDeviceProcAddr(device, "vkCreateShadersEXT"));
+	vkDestroyShaderEXT = reinterpret_cast<PFN_vkDestroyShaderEXT>(vkGetDeviceProcAddr(device, "vkDestroyShaderEXT"));
+	vkCmdBindShadersEXT = reinterpret_cast<PFN_vkCmdBindShadersEXT>(vkGetDeviceProcAddr(device, "vkCmdBindShadersEXT"));
+	vkGetShaderBinaryDataEXT = reinterpret_cast<PFN_vkGetShaderBinaryDataEXT>(vkGetDeviceProcAddr(device, "vkGetShaderBinaryDataEXT"));
+
+	vkCmdBeginRenderingKHR = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(vkGetDeviceProcAddr(device, "vkCmdBeginRenderingKHR"));
+	vkCmdEndRenderingKHR = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(vkGetDeviceProcAddr(device, "vkCmdEndRenderingKHR"));
+
+	vkCmdSetAlphaToCoverageEnableEXT = reinterpret_cast<PFN_vkCmdSetAlphaToCoverageEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetAlphaToCoverageEnableEXT"));
+	vkCmdSetColorBlendEnableEXT = reinterpret_cast<PFN_vkCmdSetColorBlendEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetColorBlendEnableEXT"));
+	vkCmdSetColorWriteMaskEXT = reinterpret_cast<PFN_vkCmdSetColorWriteMaskEXT>(vkGetDeviceProcAddr(device, "vkCmdSetColorWriteMaskEXT"));
+	vkCmdSetCullModeEXT = reinterpret_cast<PFN_vkCmdSetCullModeEXT>(vkGetDeviceProcAddr(device, "vkCmdSetCullModeEXT"));
+	vkCmdSetDepthBiasEnableEXT = reinterpret_cast<PFN_vkCmdSetDepthBiasEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthBiasEnableEXT"));
+	vkCmdSetDepthCompareOpEXT = reinterpret_cast<PFN_vkCmdSetDepthCompareOpEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthCompareOpEXT"));
+	vkCmdSetDepthTestEnableEXT = reinterpret_cast<PFN_vkCmdSetDepthTestEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthTestEnableEXT"));
+	vkCmdSetDepthWriteEnableEXT = reinterpret_cast<PFN_vkCmdSetDepthWriteEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthWriteEnableEXT"));
+	vkCmdSetFrontFaceEXT = reinterpret_cast<PFN_vkCmdSetFrontFaceEXT>(vkGetDeviceProcAddr(device, "vkCmdSetFrontFaceEXT"));
+	vkCmdSetPolygonModeEXT = reinterpret_cast<PFN_vkCmdSetPolygonModeEXT>(vkGetDeviceProcAddr(device, "vkCmdSetPolygonModeEXT"));
+	vkCmdSetPrimitiveRestartEnableEXT = reinterpret_cast<PFN_vkCmdSetPrimitiveRestartEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetPrimitiveRestartEnableEXT"));
+	vkCmdSetPrimitiveTopologyEXT = reinterpret_cast<PFN_vkCmdSetPrimitiveTopologyEXT>(vkGetDeviceProcAddr(device, "vkCmdSetPrimitiveTopologyEXT"));
+	vkCmdSetRasterizationSamplesEXT = reinterpret_cast<PFN_vkCmdSetRasterizationSamplesEXT>(vkGetDeviceProcAddr(device, "vkCmdSetRasterizationSamplesEXT"));
+	vkCmdSetRasterizerDiscardEnableEXT = reinterpret_cast<PFN_vkCmdSetRasterizerDiscardEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetRasterizerDiscardEnableEXT"));
+	vkCmdSetSampleMaskEXT = reinterpret_cast<PFN_vkCmdSetSampleMaskEXT>(vkGetDeviceProcAddr(device, "vkCmdSetSampleMaskEXT"));
+	vkCmdSetScissorWithCountEXT = reinterpret_cast<PFN_vkCmdSetScissorWithCountEXT>(vkGetDeviceProcAddr(device, "vkCmdSetScissorWithCountEXT"));
+	vkCmdSetStencilTestEnableEXT = reinterpret_cast<PFN_vkCmdSetStencilTestEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetStencilTestEnableEXT"));
+	vkCmdSetVertexInputEXT = reinterpret_cast<PFN_vkCmdSetVertexInputEXT>(vkGetDeviceProcAddr(device, "vkCmdSetVertexInputEXT"));
+	vkCmdSetViewportWithCountEXT = reinterpret_cast<PFN_vkCmdSetViewportWithCountEXT>(vkGetDeviceProcAddr(device, "vkCmdSetViewportWithCountEXT"));;
+
+	vkCmdSetAlphaToOneEnableEXT = reinterpret_cast<PFN_vkCmdSetAlphaToOneEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetAlphaToOneEnableEXT"));
+	vkCmdSetColorBlendEquationEXT = reinterpret_cast<PFN_vkCmdSetColorBlendEquationEXT>(vkGetDeviceProcAddr(device, "vkCmdSetColorBlendEquationEXT"));
 
 
+}
+
+void ShaderObjectPipeline::bind_viewport(VkCommandBuffer cmd, float width, float height, float minDepth, float maxDepth)
+{
+VkViewport viewport = {};
+	viewport.x = 0;
+	viewport.y = 0;
+	viewport.width = width;
+	viewport.height = height;
+	viewport.minDepth = minDepth;
+	viewport.maxDepth = maxDepth;
+	//vkCmdSetViewport(cmd, 0, 1, &viewport);
+	vkCmdSetViewportWithCount(cmd, 1, &viewport);
+}
+
+void ShaderObjectPipeline::bind_scissor(VkCommandBuffer cmd, int32_t offsetX, int32_t offsetY, uint32_t width, uint32_t height)
+{
+	VkRect2D scissor = {};
+	scissor.offset = { offsetX, offsetY };
+	scissor.extent = { width, height };
+	//vkCmdSetScissor(cmd, 0, 1, &scissor);
+	vkCmdSetScissorWithCount(cmd, 1, &scissor);
+}
+
+void ShaderObjectPipeline::bind_rasterizaer_discard(VkCommandBuffer cmd, VkBool32 rasterizerDiscardEnable)
+{
+	vkCmdSetRasterizerDiscardEnable(cmd, rasterizerDiscardEnable);
+}
+
+void ShaderObjectPipeline::setup_input_assembly(VkPrimitiveTopology topology)
+{
+	_topology = topology;
+}
+
+void ShaderObjectPipeline::setup_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace)
+{
+	_polygonMode = polygonMode;
+	_cullMode = cullMode;
+	_frontFace = frontFace;
+}
+
+void ShaderObjectPipeline::setup_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
+	, float minSampleShading, const VkSampleMask* pSampleMask, VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable)
+{
+	throw std::logic_error("The method or operation is not implemented.");
+}
+
+void ShaderObjectPipeline::setup_depth(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
+	, VkBool32 depthBiasEnable, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor
+	, VkBool32 depthBoundsTestEnable, float minDepthBounds, float maxDepthBounds)
+{
+	_depthTestEnable = depthTestEnable;
+	_depthWriteEnable = depthWriteEnable;
+	_compareOp = compareOp;
+
+	_depthBiasEnable = depthBiasEnable;
+	_depthBiasConstantFactor = depthBiasConstantFactor;
+	_depthBiasClamp = depthBiasClamp;
+	_depthBiasSlopeFactor = depthBiasSlopeFactor;
+
+	_depthBoundsTestEnable = depthBoundsTestEnable;
+	_minDepthBounds = minDepthBounds;
+	_maxDepthBounds = maxDepthBounds;
+}
+
+void ShaderObjectPipeline::setup_blending(ShaderObjectPipeline::BlendMode mode)
+{
+	switch (mode) {
+	case BlendMode::ALPHA_BLEND: {
+		_colorBlendingEnabled = VK_TRUE;
+		_colorWriteMask =
+			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		_colorBlendingEquation.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+		_colorBlendingEquation.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
+		_colorBlendingEquation.colorBlendOp = VK_BLEND_OP_ADD;
+		_colorBlendingEquation.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		_colorBlendingEquation.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		_colorBlendingEquation.alphaBlendOp = VK_BLEND_OP_ADD;
+		break;
+	}
+	case BlendMode::ADDITIVE_BLEND: {
+		_colorBlendingEnabled = VK_TRUE;
+		_colorWriteMask =
+			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		_colorBlendingEquation.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+		_colorBlendingEquation.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
+		_colorBlendingEquation.colorBlendOp = VK_BLEND_OP_ADD;
+		_colorBlendingEquation.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		_colorBlendingEquation.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		_colorBlendingEquation.alphaBlendOp = VK_BLEND_OP_ADD;
+		break;
+	}
+	case BlendMode::NO_BLEND:
+		_colorBlendingEnabled = VK_FALSE;
+		_colorWriteMask =
+			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		break;
+	}
+}
+
+void ShaderObjectPipeline::setup_stencil(VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back)
+{
+	throw std::logic_error("The method or operation is not implemented.");
+}
+
+
+void ShaderObjectPipeline::disable_multisampling()
+{
+	_rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	_pSampleMask = 0xFF;
+	_alphaToCoverageEnable = VK_FALSE;
+	_alphaToOneEnable = VK_FALSE;
+}
+
+void ShaderObjectPipeline::enable_depthtesting(bool depthWriteEnable, VkCompareOp op)
+{
+	setup_depth(
+		VK_TRUE, depthWriteEnable, op, // test/write
+		VK_FALSE, 0.0f, 0.0f, 0.0f, // bias
+		VK_FALSE, 0.0f, 1.0f // bounds
+	);
+}
+
+void ShaderObjectPipeline::bind_input_assembly(VkCommandBuffer cmd)
+{
+
+	vkCmdSetPrimitiveTopologyEXT(cmd, _topology);
+	vkCmdSetPrimitiveRestartEnable(cmd, VK_FALSE);
+	// unused, using buffer device address instead
+	vkCmdSetVertexInputEXT(cmd, 0, nullptr, 0, nullptr);
+}
+
+void ShaderObjectPipeline::bind_rasterization(VkCommandBuffer cmd)
+{
+	// Draw Mode
+	vkCmdSetPolygonModeEXT(cmd, _polygonMode);
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#vkCmdSetLineWidth
+	vkCmdSetLineWidth(cmd, 1.0f);
+
+	// Culling
+	vkCmdSetCullMode(cmd, _cullMode);
+	vkCmdSetFrontFace(cmd, _frontFace);
+}
+
+void ShaderObjectPipeline::bind_depth_test(VkCommandBuffer cmd) 
+{
+	vkCmdSetDepthTestEnable(cmd, _depthTestEnable);
+	vkCmdSetDepthWriteEnable(cmd, _depthWriteEnable);
+	vkCmdSetDepthCompareOp(cmd, _compareOp);
+	
+	vkCmdSetDepthBoundsTestEnable(cmd, _depthBoundsTestEnable);
+	vkCmdSetDepthBounds(cmd, _minDepthBounds, _maxDepthBounds);
+
+	vkCmdSetDepthBiasEnable(cmd, _depthBiasEnable);
+	if (_depthBiasEnable) { vkCmdSetDepthBias(cmd, _depthBiasConstantFactor, _depthBiasClamp, _depthBiasSlopeFactor); }
+	// only if depthClamp feature is enabled
+	//vkCmdSetDepthClampEnableEXT();
+}
+
+void ShaderObjectPipeline::bind_stencil(VkCommandBuffer cmd) {
+	vkCmdSetStencilTestEnable(cmd, VK_FALSE);
+	// below are the 4 functions to set stencil state
+	//vkCmdSetStencilOp(); 
+	//vkCmdSetStencilCompareMask();
+	//vkCmdSetStencilWriteMask();
+	//vkCmdSetStencilReference(); 
+}
+
+void ShaderObjectPipeline::bind_multisampling(VkCommandBuffer cmd)
+{
+	//vkCmdSetSampleShadingEnableEXT(cmd, _sampleShadingEnable);
+	vkCmdSetRasterizationSamplesEXT(cmd, _rasterizationSamples);
+	vkCmdSetSampleMaskEXT(cmd, _rasterizationSamples, &_pSampleMask);
+	vkCmdSetAlphaToCoverageEnableEXT(cmd, _alphaToCoverageEnable);
+	vkCmdSetAlphaToOneEnableEXT(cmd, _alphaToOneEnable);
+}
+
+void ShaderObjectPipeline::bind_blending(VkCommandBuffer cmd)
+{
+	vkCmdSetColorBlendEnableEXT(cmd, 0, 1, &_colorBlendingEnabled);
+	vkCmdSetColorWriteMaskEXT(cmd, 0, 1, &_colorWriteMask);
+	vkCmdSetColorBlendEquationEXT(cmd, 0, 1, &_colorBlendingEquation);
+
+	//vkCmdSetBlendConstants for blend equations that use constants
+}
+
+void ShaderObjectPipeline::bind_shaders(VkCommandBuffer cmd, uint32_t stageCount, VkShaderStageFlagBits* stages, VkShaderEXT* shaders)
+{
+	vkCmdBindShadersEXT(cmd, 2, stages, shaders);
+}
