@@ -231,11 +231,7 @@ public:
 	VkCommandPool _immCommandPool;
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
-	ShaderObjectPipeline testPipeline;
-	const uint32_t testShaderCount = 2;
-	VkShaderEXT testShaders[2];
-	VkShaderStageFlagBits testStages[2];
-	VkDescriptorSetLayout testDescriptorSetLayout[3];
+	ShaderObject testPipeline{};
 	
 	// Textures
 	AllocatedImage _whiteImage;
@@ -270,7 +266,7 @@ private:
 	void init_sync_structures();
 	void init_descriptors();
 	void init_dearimgui();
-	void init_test();
+	void init_test(VulkanEngine* engine);
 
 	void init_pipelines();
 	void init_compute_pipelines();

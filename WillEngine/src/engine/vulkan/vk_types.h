@@ -51,9 +51,10 @@ enum class MaterialPass :uint8_t {
 };
 class DescriptorBufferUniform;
 class DescriptorBufferSampler;
-
+class ShaderObject;
 struct MaterialPipeline {
 	VkPipeline pipeline;
+	ShaderObject* shaderObject;
 	VkPipelineLayout layout;
 	DescriptorBufferSampler* materialTextureDescriptorBuffer;
 	DescriptorBufferUniform* materialUniformDescriptorBuffer;

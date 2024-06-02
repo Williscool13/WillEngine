@@ -2,6 +2,7 @@
 #include "vk_types.h"
 #include "will_engine.h"
 #include <vk_initializers.h>
+#include <vk_descriptor_buffer.h>
 
 namespace vkutil {
     bool load_shader_module(const char* filePath, VkDevice device, VkShaderModule* outShaderModule);
@@ -67,7 +68,7 @@ public:
 };
 
 // goal is to be smaller than 368 bytes
-class ShaderObjectPipeline {
+class ShaderObject {
 public:
     enum class BlendMode {
         ALPHA_BLEND,
@@ -75,8 +76,20 @@ public:
         NO_BLEND
     };
 
-    void prepare(VkDevice device);
+    VkDescriptorSetLayout _descriptorSetLayout[3];
+    VkDescriptorSetLayout materialTextureLayout;
+    VkDescriptorSetLayout materialUniformLayout;
+    DescriptorBufferSampler materialTextureDescriptorBuffer;
+    DescriptorBufferUniform materialUniformDescriptorBuffer;
+    VkPipelineLayout _pipelineLayout;
 
+
+    uint32_t _shaderCount = 2;
+    VkShaderStageFlagBits _stages[2];
+    VkShaderEXT _shaders[2];
+
+
+    void prepare(VkDevice device);
     // replaces dynamic states set up for original pipeline
     void bind_viewport(VkCommandBuffer cmd, float width, float height, float minDepth, float maxDepth);
     void bind_scissor(VkCommandBuffer cmd, int32_t offsetX, int32_t offsetY, uint32_t width, uint32_t height);
@@ -96,7 +109,7 @@ public:
 							, VkBool32 depthBoundsTestEnable, float minDepthBounds, float maxDepthBounds);
 
     void setup_stencil(VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back);
-    void setup_blending(ShaderObjectPipeline::BlendMode mode);
+    void setup_blending(ShaderObject::BlendMode mode);
 
     // shortcut setup functions
     void disable_multisampling();
@@ -109,7 +122,7 @@ public:
     void bind_stencil(VkCommandBuffer cmd);
     void bind_multisampling(VkCommandBuffer cmd);
     void bind_blending(VkCommandBuffer cmd);
-    void bind_shaders(VkCommandBuffer cmd, uint32_t stageCount, VkShaderStageFlagBits* stages, VkShaderEXT* shaders);
+    void bind_shaders(VkCommandBuffer cmd);
 
 private:
     // input assembly

@@ -376,7 +376,7 @@ VkPipelineDynamicStateCreateInfo PipelineBuilder::generate_dynamic_states(VkDyna
 	return dynamicInfo;
 }
 
-void ShaderObjectPipeline::prepare(VkDevice device)
+void ShaderObject::prepare(VkDevice device)
 {
 	vkCreateShadersEXT = reinterpret_cast<PFN_vkCreateShadersEXT>(vkGetDeviceProcAddr(device, "vkCreateShadersEXT"));
 	vkDestroyShaderEXT = reinterpret_cast<PFN_vkDestroyShaderEXT>(vkGetDeviceProcAddr(device, "vkDestroyShaderEXT"));
@@ -412,7 +412,7 @@ void ShaderObjectPipeline::prepare(VkDevice device)
 
 }
 
-void ShaderObjectPipeline::bind_viewport(VkCommandBuffer cmd, float width, float height, float minDepth, float maxDepth)
+void ShaderObject::bind_viewport(VkCommandBuffer cmd, float width, float height, float minDepth, float maxDepth)
 {
 VkViewport viewport = {};
 	viewport.x = 0;
@@ -425,7 +425,7 @@ VkViewport viewport = {};
 	vkCmdSetViewportWithCount(cmd, 1, &viewport);
 }
 
-void ShaderObjectPipeline::bind_scissor(VkCommandBuffer cmd, int32_t offsetX, int32_t offsetY, uint32_t width, uint32_t height)
+void ShaderObject::bind_scissor(VkCommandBuffer cmd, int32_t offsetX, int32_t offsetY, uint32_t width, uint32_t height)
 {
 	VkRect2D scissor = {};
 	scissor.offset = { offsetX, offsetY };
@@ -434,30 +434,30 @@ void ShaderObjectPipeline::bind_scissor(VkCommandBuffer cmd, int32_t offsetX, in
 	vkCmdSetScissorWithCount(cmd, 1, &scissor);
 }
 
-void ShaderObjectPipeline::bind_rasterizaer_discard(VkCommandBuffer cmd, VkBool32 rasterizerDiscardEnable)
+void ShaderObject::bind_rasterizaer_discard(VkCommandBuffer cmd, VkBool32 rasterizerDiscardEnable)
 {
 	vkCmdSetRasterizerDiscardEnable(cmd, rasterizerDiscardEnable);
 }
 
-void ShaderObjectPipeline::setup_input_assembly(VkPrimitiveTopology topology)
+void ShaderObject::setup_input_assembly(VkPrimitiveTopology topology)
 {
 	_topology = topology;
 }
 
-void ShaderObjectPipeline::setup_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace)
+void ShaderObject::setup_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace)
 {
 	_polygonMode = polygonMode;
 	_cullMode = cullMode;
 	_frontFace = frontFace;
 }
 
-void ShaderObjectPipeline::setup_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
+void ShaderObject::setup_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
 	, float minSampleShading, const VkSampleMask* pSampleMask, VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable)
 {
 	throw std::logic_error("The method or operation is not implemented.");
 }
 
-void ShaderObjectPipeline::setup_depth(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
+void ShaderObject::setup_depth(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
 	, VkBool32 depthBiasEnable, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor
 	, VkBool32 depthBoundsTestEnable, float minDepthBounds, float maxDepthBounds)
 {
@@ -475,7 +475,7 @@ void ShaderObjectPipeline::setup_depth(VkBool32 depthTestEnable, VkBool32 depthW
 	_maxDepthBounds = maxDepthBounds;
 }
 
-void ShaderObjectPipeline::setup_blending(ShaderObjectPipeline::BlendMode mode)
+void ShaderObject::setup_blending(ShaderObject::BlendMode mode)
 {
 	switch (mode) {
 	case BlendMode::ALPHA_BLEND: {
@@ -510,13 +510,13 @@ void ShaderObjectPipeline::setup_blending(ShaderObjectPipeline::BlendMode mode)
 	}
 }
 
-void ShaderObjectPipeline::setup_stencil(VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back)
+void ShaderObject::setup_stencil(VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back)
 {
 	throw std::logic_error("The method or operation is not implemented.");
 }
 
 
-void ShaderObjectPipeline::disable_multisampling()
+void ShaderObject::disable_multisampling()
 {
 	_rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 	_pSampleMask = 0xFF;
@@ -524,7 +524,7 @@ void ShaderObjectPipeline::disable_multisampling()
 	_alphaToOneEnable = VK_FALSE;
 }
 
-void ShaderObjectPipeline::enable_depthtesting(bool depthWriteEnable, VkCompareOp op)
+void ShaderObject::enable_depthtesting(bool depthWriteEnable, VkCompareOp op)
 {
 	setup_depth(
 		VK_TRUE, depthWriteEnable, op, // test/write
@@ -533,7 +533,7 @@ void ShaderObjectPipeline::enable_depthtesting(bool depthWriteEnable, VkCompareO
 	);
 }
 
-void ShaderObjectPipeline::bind_input_assembly(VkCommandBuffer cmd)
+void ShaderObject::bind_input_assembly(VkCommandBuffer cmd)
 {
 
 	vkCmdSetPrimitiveTopologyEXT(cmd, _topology);
@@ -542,7 +542,7 @@ void ShaderObjectPipeline::bind_input_assembly(VkCommandBuffer cmd)
 	vkCmdSetVertexInputEXT(cmd, 0, nullptr, 0, nullptr);
 }
 
-void ShaderObjectPipeline::bind_rasterization(VkCommandBuffer cmd)
+void ShaderObject::bind_rasterization(VkCommandBuffer cmd)
 {
 	// Draw Mode
 	vkCmdSetPolygonModeEXT(cmd, _polygonMode);
@@ -554,7 +554,7 @@ void ShaderObjectPipeline::bind_rasterization(VkCommandBuffer cmd)
 	vkCmdSetFrontFace(cmd, _frontFace);
 }
 
-void ShaderObjectPipeline::bind_depth_test(VkCommandBuffer cmd) 
+void ShaderObject::bind_depth_test(VkCommandBuffer cmd) 
 {
 	vkCmdSetDepthTestEnable(cmd, _depthTestEnable);
 	vkCmdSetDepthWriteEnable(cmd, _depthWriteEnable);
@@ -569,7 +569,7 @@ void ShaderObjectPipeline::bind_depth_test(VkCommandBuffer cmd)
 	//vkCmdSetDepthClampEnableEXT();
 }
 
-void ShaderObjectPipeline::bind_stencil(VkCommandBuffer cmd) {
+void ShaderObject::bind_stencil(VkCommandBuffer cmd) {
 	vkCmdSetStencilTestEnable(cmd, VK_FALSE);
 	// below are the 4 functions to set stencil state
 	//vkCmdSetStencilOp(); 
@@ -578,7 +578,7 @@ void ShaderObjectPipeline::bind_stencil(VkCommandBuffer cmd) {
 	//vkCmdSetStencilReference(); 
 }
 
-void ShaderObjectPipeline::bind_multisampling(VkCommandBuffer cmd)
+void ShaderObject::bind_multisampling(VkCommandBuffer cmd)
 {
 	//vkCmdSetSampleShadingEnableEXT(cmd, _sampleShadingEnable);
 	vkCmdSetRasterizationSamplesEXT(cmd, _rasterizationSamples);
@@ -587,7 +587,7 @@ void ShaderObjectPipeline::bind_multisampling(VkCommandBuffer cmd)
 	vkCmdSetAlphaToOneEnableEXT(cmd, _alphaToOneEnable);
 }
 
-void ShaderObjectPipeline::bind_blending(VkCommandBuffer cmd)
+void ShaderObject::bind_blending(VkCommandBuffer cmd)
 {
 	vkCmdSetColorBlendEnableEXT(cmd, 0, 1, &_colorBlendingEnabled);
 	vkCmdSetColorWriteMaskEXT(cmd, 0, 1, &_colorWriteMask);
@@ -596,7 +596,7 @@ void ShaderObjectPipeline::bind_blending(VkCommandBuffer cmd)
 	//vkCmdSetBlendConstants for blend equations that use constants
 }
 
-void ShaderObjectPipeline::bind_shaders(VkCommandBuffer cmd, uint32_t stageCount, VkShaderStageFlagBits* stages, VkShaderEXT* shaders)
+void ShaderObject::bind_shaders(VkCommandBuffer cmd)
 {
-	vkCmdBindShadersEXT(cmd, 2, stages, shaders);
+	vkCmdBindShadersEXT(cmd, _shaderCount, _stages, _shaders);
 }
