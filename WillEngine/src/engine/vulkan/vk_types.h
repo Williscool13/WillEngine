@@ -40,6 +40,7 @@ struct GPUDrawPushConstants {
 	glm::mat4 modelMatrix;
 	glm::mat3x4 invTransposeModelMatrix; // hard coded to 3x4 to match GLSL std140 layout
 	VkDeviceAddress vertexBuffer;
+	float alphaCutoff;
 }; 
 
 
@@ -54,15 +55,16 @@ class DescriptorBufferSampler;
 class ShaderObject;
 struct MaterialPipeline {
 	//VkPipeline pipeline;
-	ShaderObject* shaderObject;
+	std::shared_ptr<ShaderObject> shaderObject;
 	VkPipelineLayout layout;
 	DescriptorBufferSampler* materialTextureDescriptorBuffer;
 	DescriptorBufferUniform* materialUniformDescriptorBuffer;
+	VkDescriptorSetLayout materialTextureLayout;
+	VkDescriptorSetLayout materialUniformLayout;
 };
 
 struct MaterialInstance {
-	//MaterialPipeline* pipeline;
-	ShaderObject* shaderObject;
+	MaterialPipeline* pipeline;
 	// descriptor properties
 	VkDescriptorImageInfo colorDescriptorImageInfo;
 	VkDescriptorImageInfo metalRoughDescriptorImageInfo;
@@ -71,6 +73,7 @@ struct MaterialInstance {
 	int textureDescriptorBufferIndex;
 	int uniformDescriptorBufferIndex;
 	MaterialPass passType;
+	float alphaCutoff;
 };
 
 

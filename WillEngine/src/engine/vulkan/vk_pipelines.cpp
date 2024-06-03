@@ -115,268 +115,14 @@ void vkutil::create_shader_objects(
 	PFN_vkCreateShadersEXT vkCreateShadersEXT = reinterpret_cast<PFN_vkCreateShadersEXT>(vkGetDeviceProcAddr(device, "vkCreateShadersEXT"));
 	VK_CHECK(vkCreateShadersEXT(device, 2, shaderCreateInfos, nullptr, shaders));
 
-	delete[] shaderCodes[0];
-	delete[] shaderCodes[1];
-}
-bool vkutil::load_shader_module(VkDevice device, VkShaderEXT* shaders, VkDescriptorSetLayout* descriptorLayout) {
-	std::vector<const char*> shaderPaths = {
-		"shaders/mesh.vert.spv",
-		"shaders/mesh.frag.spv"
-	};
-
-	VkShaderCreateInfoEXT shaderCreateInfos[2]{};
-	size_t shaderCodeSizes[2]{};
-	char* shaderCodes[2]{};
-
-	for (int i = 0; i < 2; i++) {
-
-		// open the file. With cursor at the end
-		std::ifstream file(shaderPaths[i], std::ios::ate | std::ios::binary);
-
-		if (!file.is_open()) {
-			return false;
-		}
-
-		shaderCodeSizes[i] = file.tellg();
-		// put file cursor at beginning
-		file.seekg(0);
-		// load the entire file into the buffer
-		shaderCodes[i] = new char[shaderCodeSizes[i]];
-		file.read(shaderCodes[i], shaderCodeSizes[i]);
-		// now that the file is loaded into the buffer, we can close it
-		file.close();
-
-		//shaderCodes[i] = (char*)buffer.data();
-		//shaderCodeSizes[i] = buffer.size() * sizeof(uint32_t);
-
-		shaderCreateInfos[i].sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT;
-		shaderCreateInfos[i].flags = VK_SHADER_CREATE_LINK_STAGE_BIT_EXT;
-		shaderCreateInfos[i].codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT;
-		shaderCreateInfos[i].pCode = shaderCodes[i];
-		shaderCreateInfos[i].codeSize = shaderCodeSizes[i];
-		shaderCreateInfos[i].pName = "main";
-		shaderCreateInfos[i].setLayoutCount = 3;
-		shaderCreateInfos[i].pSetLayouts = descriptorLayout;
-	}
-
-
-	shaderCreateInfos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	shaderCreateInfos[1].nextStage = 0;
-
-
-	PFN_vkCreateShadersEXT vkCreateShadersEXT = reinterpret_cast<PFN_vkCreateShadersEXT>(vkGetDeviceProcAddr(device, "vkCreateShadersEXT"));
-	VK_CHECK(vkCreateShadersEXT(device, 2, shaderCreateInfos, nullptr, shaders));
+	shaders[2] = VK_NULL_HANDLE;
 
 	delete[] shaderCodes[0];
 	delete[] shaderCodes[1];
-	return true;
-}
-
-void PipelineBuilder::clear()
-{
-	_inputAssembly = { .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
-	_rasterizer = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
-	_colorBlendAttachment = {}; // defines traditional alpha blending
-	_multisampling = { .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
-	_pipelineLayout = {};
-	_depthStencil = { .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
-	_renderInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
-	_shaderStages.clear();
-}
-
-VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineCreateFlagBits flags)
-{
-	// Viewport, details not necessary here (dynamic rendering)
-	VkPipelineViewportStateCreateInfo viewportState = {};
-	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	viewportState.pNext = nullptr;
-	viewportState.viewportCount = 1;
-	viewportState.scissorCount = 1;
-
-	// Color Blending
-	VkPipelineColorBlendStateCreateInfo colorBlending = {};
-	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-	colorBlending.pNext = nullptr;
-	colorBlending.logicOpEnable = VK_FALSE;
-	colorBlending.logicOp = VK_LOGIC_OP_COPY;
-	colorBlending.attachmentCount = 1;
-	colorBlending.pAttachments = &_colorBlendAttachment;
-
-	// Vertex Attribute Input (unused)
-	VkPipelineVertexInputStateCreateInfo _vertexInputInfo
-		= { .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
-
-
-	// Build Pipeline
-	VkGraphicsPipelineCreateInfo pipelineInfo = { .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
-	pipelineInfo.pNext = &_renderInfo; // for pipeline creation w/ dynamic rendering
-
-	pipelineInfo.pViewportState = &viewportState;
-	pipelineInfo.pVertexInputState = &_vertexInputInfo;
-	pipelineInfo.pColorBlendState = &colorBlending;
-
-	pipelineInfo.stageCount = (uint32_t)_shaderStages.size();
-	pipelineInfo.pStages = _shaderStages.data();
-	pipelineInfo.pInputAssemblyState = &_inputAssembly;
-	pipelineInfo.pRasterizationState = &_rasterizer;
-	pipelineInfo.pMultisampleState = &_multisampling;
-	pipelineInfo.pDepthStencilState = &_depthStencil;
-	pipelineInfo.layout = _pipelineLayout;
-
-	pipelineInfo.flags = flags;
-
-	// Dynamic state
-	VkDynamicState state[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-	VkPipelineDynamicStateCreateInfo dynamicInfo = generate_dynamic_states(state, 2);
-	pipelineInfo.pDynamicState = &dynamicInfo;
-
-	// Create Pipeline
-	VkPipeline newPipeline;
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo,
-		nullptr, &newPipeline)
-		!= VK_SUCCESS) {
-		fmt::print("failed to create pipeline");
-		return VK_NULL_HANDLE;
-	}
-	else {
-		return newPipeline;
-	}
-
-	return VkPipeline();
-}
-
-void PipelineBuilder::set_shaders(VkShaderModule vertexShader, VkShaderModule fragmentShader)
-{
-	_shaderStages.clear();
-
-	_shaderStages.push_back(
-		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, vertexShader)
-	);
-
-	_shaderStages.push_back(
-		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader)
-	);
-}
-
-void PipelineBuilder::setup_input_assembly(VkPrimitiveTopology topology)
-{
-	_inputAssembly.topology = topology;
-	_inputAssembly.primitiveRestartEnable = VK_FALSE;
-}
-
-void PipelineBuilder::setup_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace)
-{
-	// Draw Mode
-	_rasterizer.polygonMode = polygonMode;
-	_rasterizer.lineWidth = 1.0f;
-
-	// Culling
-	_rasterizer.cullMode = cullMode;
-	_rasterizer.frontFace = frontFace;
-}
-
-void PipelineBuilder::setup_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples, float minSampleShading, const VkSampleMask* pSampleMask, VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable)
-{
-	_multisampling.sampleShadingEnable = sampleShadingEnable;
-
-	_multisampling.rasterizationSamples = rasterizationSamples;
-	_multisampling.minSampleShading = minSampleShading;
-	_multisampling.pSampleMask = pSampleMask;
-	// A2C
-	_multisampling.alphaToCoverageEnable = alphaToCoverageEnable;
-	_multisampling.alphaToOneEnable = alphaToOneEnable;
-}
-
-void PipelineBuilder::setup_renderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat)
-{
-	// Color Format
-	_colorAttachmentFormat = colorattachmentFormat;
-	_renderInfo.colorAttachmentCount = 1;
-	_renderInfo.pColorAttachmentFormats = &_colorAttachmentFormat;
-
-	// Depth Format
-	_renderInfo.depthAttachmentFormat = depthAttachmentFormat;
-}
-
-void PipelineBuilder::setup_depth_stencil(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp, VkBool32 depthBoundsTestEnable, VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back, float minDepthBounds, float maxDepthBounds)
-{
-	_depthStencil.depthTestEnable = depthTestEnable;
-	_depthStencil.depthWriteEnable = depthWriteEnable;
-	_depthStencil.depthCompareOp = compareOp;
-	_depthStencil.depthBoundsTestEnable = depthBoundsTestEnable;
-	_depthStencil.stencilTestEnable = stencilTestEnable;
-	_depthStencil.front = front;
-	_depthStencil.back = back;
-	_depthStencil.minDepthBounds = minDepthBounds;
-	_depthStencil.maxDepthBounds = maxDepthBounds;
-}
-
-void PipelineBuilder::enable_depthtest(bool depthWriteEnable, VkCompareOp op) {
-	setup_depth_stencil(
-		VK_TRUE, depthWriteEnable, op,
-		VK_FALSE, VK_FALSE, {}, {}, 0.0f, 1.0f
-	);
-}
-
-void PipelineBuilder::setup_blending(PipelineBuilder::BlendMode mode) {
-	switch (mode) {
-	case BlendMode::ALPHA_BLEND: {
-		_colorBlendAttachment.colorWriteMask =
-			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		_colorBlendAttachment.blendEnable = VK_TRUE;
-		_colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-		_colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
-		_colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-		_colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-		_colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		_colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-		break;
-	}
-	case BlendMode::ADDITIVE_BLEND: {
-		_colorBlendAttachment.colorWriteMask =
-			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		_colorBlendAttachment.blendEnable = VK_TRUE;
-		_colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-		_colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
-		_colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-		_colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-		_colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		_colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-		break;
-	}
-	case BlendMode::NO_BLEND:
-		_colorBlendAttachment.colorWriteMask =
-			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		_colorBlendAttachment.blendEnable = VK_FALSE;
-		break;
-	}
 }
 
 
-
-void PipelineBuilder::disable_multisampling()
-{
-	setup_multisampling(VK_FALSE, VK_SAMPLE_COUNT_1_BIT, 1.0f, nullptr, VK_FALSE, VK_FALSE);
-}
-
-void PipelineBuilder::disable_depthtest()
-{
-	setup_depth_stencil(
-		VK_FALSE, VK_FALSE, VK_COMPARE_OP_NEVER,
-		VK_FALSE, VK_FALSE, {}, {}, 0.0f, 1.0f
-	);
-}
-
-VkPipelineDynamicStateCreateInfo PipelineBuilder::generate_dynamic_states(VkDynamicState states[], uint32_t count)
-{
-	VkPipelineDynamicStateCreateInfo dynamicInfo = { };
-	dynamicInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-	dynamicInfo.pDynamicStates = states;
-	dynamicInfo.dynamicStateCount = count;
-	return dynamicInfo;
-}
-
-void ShaderObject::prepare(VkDevice device)
+void ShaderObject::init(VkDevice device)
 {
 	vkCreateShadersEXT = reinterpret_cast<PFN_vkCreateShadersEXT>(vkGetDeviceProcAddr(device, "vkCreateShadersEXT"));
 	vkDestroyShaderEXT = reinterpret_cast<PFN_vkDestroyShaderEXT>(vkGetDeviceProcAddr(device, "vkDestroyShaderEXT"));
@@ -412,52 +158,25 @@ void ShaderObject::prepare(VkDevice device)
 
 }
 
-void ShaderObject::bind_viewport(VkCommandBuffer cmd, float width, float height, float minDepth, float maxDepth)
-{
-VkViewport viewport = {};
-	viewport.x = 0;
-	viewport.y = 0;
-	viewport.width = width;
-	viewport.height = height;
-	viewport.minDepth = minDepth;
-	viewport.maxDepth = maxDepth;
-	//vkCmdSetViewport(cmd, 0, 1, &viewport);
-	vkCmdSetViewportWithCount(cmd, 1, &viewport);
-}
-
-void ShaderObject::bind_scissor(VkCommandBuffer cmd, int32_t offsetX, int32_t offsetY, uint32_t width, uint32_t height)
-{
-	VkRect2D scissor = {};
-	scissor.offset = { offsetX, offsetY };
-	scissor.extent = { width, height };
-	//vkCmdSetScissor(cmd, 0, 1, &scissor);
-	vkCmdSetScissorWithCount(cmd, 1, &scissor);
-}
-
-void ShaderObject::bind_rasterizaer_discard(VkCommandBuffer cmd, VkBool32 rasterizerDiscardEnable)
-{
-	vkCmdSetRasterizerDiscardEnable(cmd, rasterizerDiscardEnable);
-}
-
-void ShaderObject::setup_input_assembly(VkPrimitiveTopology topology)
+void ShaderObject::init_input_assembly(VkPrimitiveTopology topology)
 {
 	_topology = topology;
 }
 
-void ShaderObject::setup_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace)
+void ShaderObject::init_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace)
 {
 	_polygonMode = polygonMode;
 	_cullMode = cullMode;
 	_frontFace = frontFace;
 }
 
-void ShaderObject::setup_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
+void ShaderObject::init_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
 	, float minSampleShading, const VkSampleMask* pSampleMask, VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable)
 {
 	throw std::logic_error("The method or operation is not implemented.");
 }
 
-void ShaderObject::setup_depth(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
+void ShaderObject::init_depth(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
 	, VkBool32 depthBiasEnable, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor
 	, VkBool32 depthBoundsTestEnable, float minDepthBounds, float maxDepthBounds)
 {
@@ -475,15 +194,17 @@ void ShaderObject::setup_depth(VkBool32 depthTestEnable, VkBool32 depthWriteEnab
 	_maxDepthBounds = maxDepthBounds;
 }
 
-void ShaderObject::setup_blending(ShaderObject::BlendMode mode)
+void ShaderObject::init_blending(ShaderObject::BlendMode mode)
 {
 	switch (mode) {
 	case BlendMode::ALPHA_BLEND: {
 		_colorBlendingEnabled = VK_TRUE;
 		_colorWriteMask =
 			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		_colorBlendingEquation.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-		_colorBlendingEquation.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
+		//_colorBlendingEquation.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+		_colorBlendingEquation.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+		//_colorBlendingEquation.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
+		_colorBlendingEquation.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 		_colorBlendingEquation.colorBlendOp = VK_BLEND_OP_ADD;
 		_colorBlendingEquation.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
 		_colorBlendingEquation.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
@@ -510,7 +231,7 @@ void ShaderObject::setup_blending(ShaderObject::BlendMode mode)
 	}
 }
 
-void ShaderObject::setup_stencil(VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back)
+void ShaderObject::init_stencil(VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back)
 {
 	throw std::logic_error("The method or operation is not implemented.");
 }
@@ -524,13 +245,58 @@ void ShaderObject::disable_multisampling()
 	_alphaToOneEnable = VK_FALSE;
 }
 
+void ShaderObject::enable_msaa4()
+{
+
+	_rasterizationSamples = VK_SAMPLE_COUNT_4_BIT;
+	_pSampleMask = 0xFF;
+	_alphaToCoverageEnable = VK_FALSE;
+	_alphaToOneEnable = VK_FALSE;
+}
+
 void ShaderObject::enable_depthtesting(bool depthWriteEnable, VkCompareOp op)
 {
-	setup_depth(
+	init_depth(
 		VK_TRUE, depthWriteEnable, op, // test/write
 		VK_FALSE, 0.0f, 0.0f, 0.0f, // bias
 		VK_FALSE, 0.0f, 1.0f // bounds
 	);
+}
+
+void ShaderObject::disable_depthtesting()
+{
+	init_depth(
+		VK_FALSE, VK_FALSE, VK_COMPARE_OP_ALWAYS, // test/write
+		VK_FALSE, 0.0f, 0.0f, 0.0f, // bias
+		VK_FALSE, 0.0f, 1.0f // bounds
+	);
+}
+
+void ShaderObject::bind_viewport(VkCommandBuffer cmd, float width, float height, float minDepth, float maxDepth)
+{
+	VkViewport viewport = {};
+	viewport.x = 0;
+	viewport.y = 0;
+	viewport.width = width;
+	viewport.height = height;
+	viewport.minDepth = minDepth;
+	viewport.maxDepth = maxDepth;
+	//vkCmdSetViewport(cmd, 0, 1, &viewport);
+	vkCmdSetViewportWithCount(cmd, 1, &viewport);
+}
+
+void ShaderObject::bind_scissor(VkCommandBuffer cmd, int32_t offsetX, int32_t offsetY, uint32_t width, uint32_t height)
+{
+	VkRect2D scissor = {};
+	scissor.offset = { offsetX, offsetY };
+	scissor.extent = { width, height };
+	//vkCmdSetScissor(cmd, 0, 1, &scissor);
+	vkCmdSetScissorWithCount(cmd, 1, &scissor);
+}
+
+void ShaderObject::bind_rasterizaer_discard(VkCommandBuffer cmd, VkBool32 rasterizerDiscardEnable)
+{
+	vkCmdSetRasterizerDiscardEnable(cmd, rasterizerDiscardEnable);
 }
 
 void ShaderObject::bind_input_assembly(VkCommandBuffer cmd)
@@ -594,6 +360,7 @@ void ShaderObject::bind_blending(VkCommandBuffer cmd)
 	vkCmdSetColorBlendEquationEXT(cmd, 0, 1, &_colorBlendingEquation);
 
 	//vkCmdSetBlendConstants for blend equations that use constants
+	
 }
 
 void ShaderObject::bind_shaders(VkCommandBuffer cmd)

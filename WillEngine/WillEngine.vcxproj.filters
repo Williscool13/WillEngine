@@ -185,5 +185,11 @@
     <None Include="shaders\mesh.vert">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\fullscreen.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\fullscreen.vert">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

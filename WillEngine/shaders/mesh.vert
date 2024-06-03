@@ -8,7 +8,7 @@
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec3 outColor;
 layout (location = 2) out vec2 outUV;
-
+layout (location = 3) out float alphaCutoff;
 struct Vertex 
 {
 	vec3 position;
@@ -29,6 +29,7 @@ layout( push_constant ) uniform constants
 	mat4 model_matrix;
 	mat3 normal_matrix;
 	VertexBuffer vertexBuffer;
+	float alphaCutoff;
 } PushConstants;
 
 void main() 
@@ -43,4 +44,5 @@ void main()
 	outColor = v.color.xyz;
 	outUV.x = v.uv_x;
 	outUV.y = v.uv_y;
+	alphaCutoff = PushConstants.alphaCutoff;
 }

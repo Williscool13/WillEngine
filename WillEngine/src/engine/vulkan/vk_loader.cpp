@@ -216,12 +216,16 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::s
 		//sceneMaterialConstants[data_index] = constants;
 
 		MaterialPass passType = MaterialPass::MainColor;
+		GLTFMetallic_Roughness::MaterialResources materialResources;
+		materialResources.alphaCutoff = 0.0f;
 		if (mat.alphaMode == fastgltf::AlphaMode::Blend) {
 			passType = MaterialPass::Transparent;
 			fmt::print("Transparent material found\n");
+		} else if (mat.alphaMode == fastgltf::AlphaMode::Mask) {
+			materialResources.alphaCutoff = mat.alphaCutoff;
+			fmt::print("Masked material found\n");
 		}
 
-		GLTFMetallic_Roughness::MaterialResources materialResources;
 		// default the material textures
 		materialResources.colorImage = engine->_whiteImage;
 		materialResources.colorSampler = engine->_defaultSamplerLinear;
@@ -418,8 +422,8 @@ void LoadedGLTF::clearAll()
 	VkDevice dv = creator->_device;
 
 	for (auto& [k, v] : materials) {
-		v->data.shaderObject->materialTextureDescriptorBuffer->free_descriptor_buffer(v->data.textureDescriptorBufferIndex);
-		v->data.shaderObject->materialUniformDescriptorBuffer->free_descriptor_buffer(v->data.uniformDescriptorBufferIndex);
+		v->data.pipeline->materialTextureDescriptorBuffer->free_descriptor_buffer(v->data.textureDescriptorBufferIndex);
+		v->data.pipeline->materialUniformDescriptorBuffer->free_descriptor_buffer(v->data.uniformDescriptorBufferIndex);
 		creator->destroy_buffer(v->data.materialUniformBuffer);
 	}
 

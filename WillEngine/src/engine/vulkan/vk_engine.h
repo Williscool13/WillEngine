@@ -107,8 +107,10 @@ class VulkanEngine;
 
 struct GLTFMetallic_Roughness {
 	// 2x pipelines
-	ShaderObject opaquePipeline;
-	ShaderObject transparentPipeline;
+	MaterialPipeline opaquePipeline;
+	MaterialPipeline transparentPipeline;	
+	//ShaderObject opaquePipeline;
+	//ShaderObject transparentPipeline;
 	VkPipelineLayout pipelineLayout;
 
 	bool pipeline_layout_initialized = false;
@@ -131,6 +133,7 @@ struct GLTFMetallic_Roughness {
 		VkSampler metalRoughSampler;
 		AllocatedBuffer dataBuffer;
 		uint32_t dataBufferSize;
+		float alphaCutoff;
 	};
 
 	//DescriptorWriter writer;
@@ -183,6 +186,7 @@ public:
 
 	//draw resources
 	AllocatedImage _drawImage;
+	AllocatedImage _drawImageBeforeMSAA;
 	AllocatedImage _depthImage;
 	VkExtent2D _drawExtent;
 	float _renderScale{ 1.0f };
@@ -208,10 +212,17 @@ public:
 	VkDescriptorSetLayout computeImageDescriptorSetLayout;
 	DescriptorBufferSampler computeImageDescriptorBuffer;
 
+	// Generic Fullscreen Pipeline
+	VkPipelineLayout _fullscreenPipelineLayout;
+	VkDescriptorSetLayout _fullscreenDescriptorSetLayout;
+	DescriptorBufferSampler _fullscreenDescriptorBuffer;
+	ShaderObject _fullscreenPipeline;
+
 
 	void init();
 	void cleanup();
 	void draw_background(VkCommandBuffer cmd);
+	void draw_fullscreen(VkCommandBuffer cmd, AllocatedImage sourceImage,  AllocatedImage targetImage);
 	void draw_geometry(VkCommandBuffer cmd);
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	void draw();
@@ -260,6 +271,7 @@ public:
 private:
 	void init_vulkan();
 	void init_swapchain();
+	void init_draw_images();
 	void init_commands();
 	void init_sync_structures();
 	void init_descriptors();
@@ -267,7 +279,7 @@ private:
 
 	void init_pipelines();
 	void init_compute_pipelines();
-
+	void init_fullscreen_pipeline();
 	void init_default_data();
 
 	void create_swapchain(uint32_t width, uint32_t height);

@@ -191,6 +191,8 @@ compile_shaders.sh</Command>
     <None Include="shaders\colored_triangle.frag" />
     <None Include="shaders\colored_triangle.vert" />
     <None Include="shaders\colored_triangle_mesh.vert" />
+    <None Include="shaders\fullscreen.frag" />
+    <None Include="shaders\fullscreen.vert" />
     <None Include="shaders\gradient.comp">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>

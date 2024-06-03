@@ -12,64 +12,8 @@ namespace vkutil {
         , VkDevice device, VkShaderEXT* shaders
         , uint32_t descriptorSetCount, VkDescriptorSetLayout* descriptorLayout
         , uint32_t pushConstantRangeCount, VkPushConstantRange* pushConstantRanges);
-    bool load_shader_module(VkDevice device, VkShaderEXT* shaders, VkDescriptorSetLayout* descriptorLayout);
 };
 
-
-class PipelineBuilder {
-public:
-    enum class BlendMode {
-        ALPHA_BLEND,
-        ADDITIVE_BLEND,
-        NO_BLEND
-    };
-
-    std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
-
-    VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
-    VkPipelineRasterizationStateCreateInfo _rasterizer;
-    VkPipelineMultisampleStateCreateInfo _multisampling;
-    VkPipelineColorBlendAttachmentState _colorBlendAttachment;
-    VkPipelineRenderingCreateInfo _renderInfo;
-    VkPipelineDepthStencilStateCreateInfo _depthStencil;
-
-    VkPipelineLayout _pipelineLayout;
-    VkFormat _colorAttachmentFormat;
-
-    PipelineBuilder() { clear(); }
-
-    void clear();
-
-    VkPipeline build_pipeline(VkDevice device, VkPipelineCreateFlagBits flags);
-    void set_shaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
-
-    void setup_input_assembly(VkPrimitiveTopology topology);
-    void setup_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace);
-    void setup_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
-                            , float minSampleShading, const VkSampleMask* pSampleMask
-							, VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
-    void setup_renderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat);
-    void setup_depth_stencil(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
-                            , VkBool32 depthBoundsTestEnable, VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back
-                            , float minDepthBounds, float maxDepthBounds);
-
-    void enable_depthtest(bool depthWriteEnable, VkCompareOp op);
-
-    void setup_blending(PipelineBuilder::BlendMode mode);
-   
-
-
-    void disable_multisampling();
-    void disable_depthtest();
-
-    VkPipelineDynamicStateCreateInfo generate_dynamic_states(VkDynamicState states[], uint32_t count);
-
-
-};
-
-class DescriptorBufferSampler;
-class DescriptorBufferUniform;
-// goal is to be smaller than 368 bytes
 class ShaderObject {
 public:
     enum class BlendMode {
@@ -78,45 +22,39 @@ public:
         NO_BLEND
     };
 
-    VkDescriptorSetLayout materialTextureLayout;
-    VkDescriptorSetLayout materialUniformLayout;
-    DescriptorBufferSampler* materialTextureDescriptorBuffer;
-    DescriptorBufferUniform* materialUniformDescriptorBuffer;
-    VkPipelineLayout _pipelineLayout;
+    uint32_t _shaderCount = 3;
+    VkShaderStageFlagBits _stages[3];
+    VkShaderEXT _shaders[3];
 
 
-    uint32_t _shaderCount = 2;
-    VkShaderStageFlagBits _stages[2];
-    VkShaderEXT _shaders[2];
+    void init(VkDevice device);
+    void init_input_assembly(VkPrimitiveTopology topology);
+    void init_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace);
+    void init_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
+							, float minSampleShading, const VkSampleMask* pSampleMask
+							, VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
+    // i cant find any set functions for this. maybe it is not needed
+    //void setup_renderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat);
+    void init_depth(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
+                            , VkBool32 depthBiasEnable, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor
+							, VkBool32 depthBoundsTestEnable, float minDepthBounds, float maxDepthBounds);
+
+    void init_stencil(VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back);
+    void init_blending(ShaderObject::BlendMode mode);
+
+    // shortcut setup functions
+    void disable_multisampling();
+    void enable_msaa4();
+    void enable_depthtesting(bool depthWriteEnable, VkCompareOp op);
+    void disable_depthtesting();
 
 
-    void prepare(VkDevice device);
     // replaces dynamic states set up for original pipeline
     void bind_viewport(VkCommandBuffer cmd, float width, float height, float minDepth, float maxDepth);
     void bind_scissor(VkCommandBuffer cmd, int32_t offsetX, int32_t offsetY, uint32_t width, uint32_t height);
     // should be disabled usually
     //  https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#vkCmdSetRasterizerDiscardEnable
     void bind_rasterizaer_discard(VkCommandBuffer cmd, VkBool32 rasterizerDiscardEnable);
-
-    void setup_input_assembly(VkPrimitiveTopology topology);
-    void setup_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace);
-    void setup_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
-							, float minSampleShading, const VkSampleMask* pSampleMask
-							, VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
-    // i cant find any set functions for this. maybe it is not needed
-    //void setup_renderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat);
-    void setup_depth(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
-                            , VkBool32 depthBiasEnable, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor
-							, VkBool32 depthBoundsTestEnable, float minDepthBounds, float maxDepthBounds);
-
-    void setup_stencil(VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back);
-    void setup_blending(ShaderObject::BlendMode mode);
-
-    // shortcut setup functions
-    void disable_multisampling();
-    void enable_depthtesting(bool depthWriteEnable, VkCompareOp op);
-
-
     void bind_input_assembly(VkCommandBuffer cmd);
     void bind_rasterization(VkCommandBuffer cmd);
     void bind_depth_test(VkCommandBuffer cmd);

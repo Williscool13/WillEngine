@@ -103,6 +103,7 @@ DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice d
 int DescriptorBufferSampler::setup_data(VkDevice device, std::vector<std::pair<VkDescriptorType, VkDescriptorImageInfo>> data) {
 	if (free_indices.empty()) {
 		fmt::print("Ran out of space in DescriptorBufferUniform\n");
+		abort();
 		return -1;
 	}
 
@@ -276,6 +277,7 @@ DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice d
 int DescriptorBufferUniform::setup_data(VkDevice device, const AllocatedBuffer& uniform_buffer, size_t allocSize) {
 	if (free_indices.empty()) {
 		fmt::print("Ran out of space in DescriptorBufferUniform\n");
+		abort();
 		return -1;
 	}
 
