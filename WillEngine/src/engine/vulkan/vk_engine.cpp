@@ -1687,3 +1687,137 @@ void MeshNode::Draw(const glm::mat4& topMatrix, DrawContext& ctx)
 	// recurse down
 	Node::Draw(topMatrix, ctx);
 }
+
+//void MultiDrawIndirect::initialize_buffers(VkCommandBuffer immediateCommandBuffer, VkFence& immediateFence, VkQueue grapgicsQueue, VkDevice device, VmaAllocator allocator)
+//{
+//	size_t vertex_buffer_size = 0;
+//	size_t index_buffer_size = 0;
+//	const size_t model_buffer_size = models.size() * sizeof(SceneModel);
+//
+//	for (auto&& model : models) {
+//		model.vertex_buffer_offset = vertex_buffer_size;
+//		model.index_buffer_offset = index_buffer_size;
+//
+//		vertex_buffer_size += model.vertices.size() * sizeof(MultiDrawVertex);
+//		index_buffer_size += model.triangles.size() * sizeof(model.triangles[0]);
+//	}
+//
+//	AllocatedBuffer staging_vertex_buffer = create_staging_buffer(allocator, vertex_buffer_size);
+//	AllocatedBuffer staging_index_buffer = create_staging_buffer(allocator,  index_buffer_size);
+//	AllocatedBuffer staging_model_buffer = create_staging_buffer(allocator,  model_buffer_size);
+//
+//	constexpr auto default_indirect_flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+//	auto           indirect_flags = default_indirect_flags | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+//	// will be the BDA for the indirect draw
+//	indirectDrawBuffer = create_buffer(allocator,
+//		models.size() * sizeof(VkDrawIndexedIndirectCommand)
+//		, indirect_flags
+//		, VMA_MEMORY_USAGE_GPU_ONLY);
+//
+//	// will pass address through address_buffer
+//	const size_t address_buffer_size = sizeof(VkDeviceAddress);
+//	auto         staging_address_buffer = create_staging_buffer(allocator, address_buffer_size);
+//	VkDeviceAddress address = get_address(device, indirectDrawBuffer.buffer);
+//	memcpy(staging_address_buffer.info.pMappedData, &address, address_buffer_size);
+//
+//	for (size_t i = 0; i < models.size(); i++) {
+//		SceneModel& model = models[i];
+//		
+//		std::copy(model.vertices.data(), model.vertices.data() + model.vertices.size() * sizeof(MultiDrawVertex), (char*)(staging_vertex_buffer.info.pMappedData) + model.vertex_buffer_offset);
+//		std::copy(model.triangles.data(), model.triangles.data() + model.triangles.size() * sizeof(model.triangles[0]), (char*)(staging_index_buffer.info.pMappedData) + model.index_buffer_offset);
+//
+//		GpuModelInformation modelInfo;
+//		modelInfo.bounding_sphere_center = 
+//			model.vertices[0].modelMatrix * glm::vec4(model.bounding_sphere.center, 1); // model matrix is same for all vertices in a model
+//		modelInfo.bounding_sphere_radius = model.bounding_sphere.radius; 
+//		// omitting texture index here because i think its not actually used.
+//		modelInfo.firstIndex = model.index_buffer_offset;
+//		modelInfo.indexCount = static_cast<uint32_t>(model.triangles.size());
+//		std::copy(&modelInfo, &modelInfo + sizeof(GpuModelInformation), (char*)(staging_model_buffer.info.pMappedData) + i * sizeof(GpuModelInformation));
+//	}
+//
+//
+//
+//	VkCommandBuffer cmd = immediateCommandBuffer;
+//	VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+//	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo)); 
+//	auto copy = [this, &cmd, &allocator](AllocatedBuffer& staging, VkBufferUsageFlags buffer_usage_flags) {
+//		AllocatedBuffer output_buffer = create_buffer(allocator, staging.info.size, buffer_usage_flags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+//		VkBufferCopy copyRegion = {};
+//		copyRegion.size = staging.info.size;
+//		vkCmdCopyBuffer(cmd, staging.buffer, output_buffer.buffer, 1, &copyRegion);
+//		VkBufferMemoryBarrier barrier;
+//		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+//		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+//		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+//
+//		return output_buffer;
+//	};
+//
+//	VK_CHECK(vkResetFences(device, 1, &immediateFence));
+//	VK_CHECK(vkResetCommandBuffer(immediateCommandBuffer, 0));
+//	combinedVertexBuffer = copy(staging_vertex_buffer, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+//	combinedIndexBuffer = copy(staging_index_buffer, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+//	modelInformationBuffer = copy(staging_model_buffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+//	indirectDrawBufferAddress = copy(staging_address_buffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+//	VK_CHECK(vkEndCommandBuffer(cmd));
+//	VkCommandBufferSubmitInfo cmdSubmitInfo = vkinit::command_buffer_submit_info(cmd);
+//	VkSubmitInfo2 submitInfo = vkinit::submit_info(&cmdSubmitInfo, nullptr, nullptr);
+//	VK_CHECK(vkQueueSubmit2(grapgicsQueue, 1, &submitInfo, immediateFence));
+//	VK_CHECK(vkWaitForFences(device, 1, &immediateFence, true, 1000000000));
+//
+//	
+//}
+//
+//AllocatedBuffer MultiDrawIndirect::create_buffer(VmaAllocator allocator, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+//{
+//		VkBufferCreateInfo bufferInfo = { .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+//		bufferInfo.pNext = nullptr;
+//		bufferInfo.size = allocSize;
+//
+//		bufferInfo.usage = usage;
+//
+//		VmaAllocationCreateInfo vmaallocInfo = {};
+//		vmaallocInfo.usage = memoryUsage;
+//
+//		vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+//		AllocatedBuffer newBuffer;
+//
+//
+//		VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vmaallocInfo, &newBuffer.buffer, &newBuffer.allocation,
+//			&newBuffer.info));
+//
+//		return newBuffer;
+//
+//}
+//
+//AllocatedBuffer MultiDrawIndirect::create_staging_buffer(VmaAllocator allocator, VkDeviceSize allocSize)
+//{
+//	VkBufferCreateInfo bufferInfo = { .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+//	bufferInfo.pNext = nullptr;
+//	bufferInfo.size = allocSize;
+//
+//	bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+//
+//	VmaAllocationCreateInfo vmaallocInfo = {};
+//	vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+//
+//	vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+//	AllocatedBuffer newBuffer;
+//
+//
+//	VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vmaallocInfo, &newBuffer.buffer, &newBuffer.allocation,
+//		&newBuffer.info));
+//
+//	return newBuffer;
+//}
+//
+//VkDeviceAddress MultiDrawIndirect::get_address(VkDevice device, VkBuffer buffer)
+//{
+//	VkBufferDeviceAddressInfo deviceAdressInfo{};
+//	deviceAdressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+//	deviceAdressInfo.buffer = buffer;
+//	uint64_t address = vkGetBufferDeviceAddress(device, &deviceAdressInfo);
+//
+//	return address;
+//}

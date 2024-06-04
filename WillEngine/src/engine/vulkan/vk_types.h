@@ -26,6 +26,56 @@ struct Vertex {
 	glm::vec4 color;
 };
 
+// binding 0
+//struct MultiDrawVertex {
+//	glm::vec3 position;
+//	float uv_x;
+//	glm::vec3 normal;
+//	float uv_y;
+//	glm::vec4 color;
+//	glm::mat4x4 modelMatrix;
+//	glm::mat3x4 inverseTransposeModelMatrix;
+//	uint16_t textureIndex1;
+//	uint16_t textureIndex2;
+//	float alphaCutoff;
+//};
+//
+//// binding 1
+//uint16_t textureIndex;
+//
+//glm::mat4 modelMatrix;
+//glm::mat4 inverseTransposeModelMatrix;
+//VkDeviceAddress vertexBuffer;
+//float alphaCutoff;
+//
+//struct BoundingSphere
+//{
+//	BoundingSphere() = default;
+//	explicit BoundingSphere(const std::vector<glm::vec3>& pts);
+//	glm::vec3 center = { 0, 0, 0 };
+//	float     radius = 0;
+//};
+//
+//struct GpuModelInformation
+//{
+//	glm::vec3 bounding_sphere_center;
+//	float     bounding_sphere_radius;
+//	uint32_t  texture_index = 0;
+//	uint32_t  firstIndex = 0;
+//	uint32_t  indexCount = 0;
+//	uint32_t  _pad = 0;
+//};
+//
+//struct SceneModel
+//{
+//	std::vector<MultiDrawVertex>                  vertices;
+//	std::vector<std::array<uint16_t, 3>> triangles;
+//	size_t                               vertex_buffer_offset = 0;
+//	size_t                               index_buffer_offset = 0;
+//	size_t                               texture_index = 0;
+//	BoundingSphere                       bounding_sphere;
+//};
+
 
 // holds the resources needed for a mesh
 struct GPUMeshBuffers {
@@ -68,7 +118,7 @@ struct MaterialInstance {
 	// descriptor properties
 	VkDescriptorImageInfo colorDescriptorImageInfo;
 	VkDescriptorImageInfo metalRoughDescriptorImageInfo;
-	AllocatedBuffer materialUniformBuffer;
+	AllocatedBuffer materialUniformBuffer; // underlying buffer for the uniform descriptor
 
 	int textureDescriptorBufferIndex;
 	int uniformDescriptorBufferIndex;

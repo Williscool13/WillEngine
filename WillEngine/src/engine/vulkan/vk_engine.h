@@ -152,6 +152,61 @@ struct GLTFMetallic_Roughness {
 	void destroy(VkDevice device, VmaAllocator allocator);
 };
 
+
+struct GLTFMetallic_RoughnessMultiDraw {
+	VulkanEngine* engine;
+
+
+	// scene representation
+	// model = blabla
+
+
+
+
+
+	// index buffer
+	//  will be passed into pipeline with vkCmdBindIndexBuffer
+
+	// buffer buffer
+	// passes vertex and texture addresses to shaders
+	// vertex buffer
+	//  passed to shaders w/ buffer device address
+	// texture buffer
+	//  passed to shaders w/ buffer device address
+
+
+	// indirect draw buffer buffer
+	//  passes compute shader address of indirect draw buffer
+	// inderect draw buffer
+	//  passed to compute shader to calculate culling through another buffer
+
+
+	// 
+};
+
+//struct MultiDrawIndirect {
+//	std::vector<SceneModel> models;
+//
+//	AllocatedBuffer combinedVertexBuffer;
+//	AllocatedBuffer combinedIndexBuffer;
+//	// to calculate culling
+//	AllocatedBuffer modelInformationBuffer;
+//
+//	// actual buffer on the GPU
+//	AllocatedBuffer indirectDrawBuffer;
+//	AllocatedBuffer indirectDrawBufferAddress;
+//
+//
+//	void initialize_buffers(VkCommandBuffer immediateCommandBuffer, VkFence& immediateFence, VkQueue grapgicsQueue, VkDevice device, VmaAllocator allocator);
+//
+//	AllocatedBuffer create_buffer(VmaAllocator allocator, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+//	AllocatedBuffer create_staging_buffer(VmaAllocator allocator, VkDeviceSize allocSize);
+//
+//	VkDeviceAddress get_address(VkDevice device, VkBuffer buffer);
+//};
+
+
+
 class VulkanEngine {
 public:
 
