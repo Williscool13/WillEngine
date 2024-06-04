@@ -112,6 +112,9 @@
     <ClCompile Include="src\engine\vulkan\vk_images.cpp">
       <Filter>engine\vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="src\engine\utils\utils.cpp">
+      <Filter>engine\utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\engine\core\acceleration_structures.h">
@@ -152,6 +155,9 @@
     </ClInclude>
     <ClInclude Include="src\engine\vulkan\vk_images.h">
       <Filter>engine\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\utils\utils.h">
+      <Filter>engine\utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

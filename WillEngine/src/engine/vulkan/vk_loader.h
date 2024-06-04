@@ -2,6 +2,8 @@
 #include "vk_types.h"
 #include "will_engine.h"
 #include "vk_engine.h"
+// ktx
+#include <ktxvulkan.h>
 // implementation in vk_Engine.cpp
 #include <stb_image/stb_image.h>
 // only used here

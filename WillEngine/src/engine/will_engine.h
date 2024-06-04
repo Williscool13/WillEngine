@@ -35,6 +35,7 @@
 // project utilities
 #include <time_utils.h>
 #include <input.h>
+#include <utils.h>
 // sdl
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>

@@ -44,7 +44,7 @@ public:
 
     // shortcut setup functions
     void disable_multisampling();
-    void enable_msaa4();
+    void enable_msaa(VkSampleCountFlagBits samples);
     void enable_depthtesting(bool depthWriteEnable, VkCompareOp op);
     void disable_depthtesting();
 

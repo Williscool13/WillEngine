@@ -12,6 +12,7 @@ layout (location = 0) out vec4 outFragColor;
 void main() 
 {
 	vec4 _col = texture(sampler2D(colorI, colorS), inUV);
+	_col *= materialData.colorFactors;
 
 	if (_col.w < alphaCutoff) {
 		discard;

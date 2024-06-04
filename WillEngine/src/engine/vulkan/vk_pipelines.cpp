@@ -245,10 +245,10 @@ void ShaderObject::disable_multisampling()
 	_alphaToOneEnable = VK_FALSE;
 }
 
-void ShaderObject::enable_msaa4()
+void ShaderObject::enable_msaa(VkSampleCountFlagBits samples)
 {
 
-	_rasterizationSamples = VK_SAMPLE_COUNT_4_BIT;
+	_rasterizationSamples = samples;
 	_pSampleMask = 0xFF;
 	_alphaToCoverageEnable = VK_FALSE;
 	_alphaToOneEnable = VK_FALSE;

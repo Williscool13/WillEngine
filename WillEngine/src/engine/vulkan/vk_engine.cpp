@@ -17,12 +17,14 @@
 #endif
 
 #define USE_MSAA true
+#define MSAA_SAMPLES VK_SAMPLE_COUNT_4_BIT
 
 //bool bUseValidationLayers = true;
 
 VulkanEngine* loadedEngine = nullptr;
 
 VulkanEngine& VulkanEngine::Get() { return *loadedEngine; }
+
 
 void VulkanEngine::init()
 {
@@ -45,9 +47,12 @@ void VulkanEngine::init()
 
 	init_vulkan();
 
+	//ktxVulkanDeviceInfo kvdi;
+	//ktxVulkanDeviceInfo_Construct(&kvdi, _physicalDevice, _device, _graphicsQueue, _immCommandPool, nullptr);
+
 	init_swapchain();
 
-	init_draw_images();
+	//init_draw_images();
 
 	init_commands();
 
@@ -59,16 +64,18 @@ void VulkanEngine::init()
 
 	init_dearimgui();
 
-	init_default_data();
+	init_default_data();  
 
 	std::string structurePath = { "assets\\models\\structure.glb" };
+	//std::string structurePath = { "assets\\models\\vokselia\\vokselia.gltf" };
 	//std::string structurePath = { "assets\\models\\virtual_city\\VirtualCity.glb" };
+	//std::string structurePath = { "assets\\models\\primitives\\primitives.gltf" };   
 	//std::string structurePath = { "assets\\models\\AlphaBlendModeTest\\glTF-Binary\\AlphaBlendModeTest.glb" };
-	auto structureFile = loadGltf(this, structurePath);
+	auto structureFile = loadGltf(this, structurePath); 
 	assert(structureFile.has_value());
-	loadedScenes["structure"] = *structureFile;
+	loadedScenes["structure"] = *structureFile; 
 
-	//mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
+	mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
 	mainCamera.yaw = -90.0f;
 
 
@@ -81,7 +88,6 @@ void VulkanEngine::init()
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, fullscreenCombined },
 	};
 	_fullscreenDescriptorBuffer.setup_data(_device, combined_descriptor);
-
 
 	_isInitialized = true;
 
@@ -108,7 +114,7 @@ void VulkanEngine::init_vulkan()
 	// sdl vulkan surface
 	SDL_Vulkan_CreateSurface(_window, _instance, &_surface);
 
-	
+
 
 	// vk 1.3
 	VkPhysicalDeviceVulkan13Features features{};
@@ -175,6 +181,11 @@ void VulkanEngine::init_vulkan()
 void VulkanEngine::init_swapchain()
 {
 	create_swapchain(_windowExtent.width, _windowExtent.height);
+	create_draw_images(_windowExtent.width, _windowExtent.height);
+
+	_mainDeletionQueue.push_function([&]() {
+		destroy_draw_iamges();
+	});
 }
 
 void VulkanEngine::init_draw_images() {
@@ -226,20 +237,88 @@ void VulkanEngine::init_draw_images() {
 	VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImage.imageView));
 
 	// Deletion Queue
-	_mainDeletionQueue.push_function([=]() {
+	_mainDeletionQueue.push_function([&]() {
 		vkDestroyImageView(_device, _drawImage.imageView, nullptr);
 		vmaDestroyImage(_allocator, _drawImage.image, _drawImage.allocation);
 		});
 	if (USE_MSAA) {
-		_mainDeletionQueue.push_function([=]() {
+		_mainDeletionQueue.push_function([&]() {
 			vkDestroyImageView(_device, _drawImageBeforeMSAA.imageView, nullptr);
 			vmaDestroyImage(_allocator, _drawImageBeforeMSAA.image, _drawImageBeforeMSAA.allocation);
 			});
 	}
-	_mainDeletionQueue.push_function([=]() {
+	_mainDeletionQueue.push_function([&]() {
 		vkDestroyImageView(_device, _depthImage.imageView, nullptr);
 		vmaDestroyImage(_allocator, _depthImage.image, _depthImage.allocation);
 		});
+}
+
+void VulkanEngine::create_draw_images(uint32_t width, uint32_t height) {
+	// Draw Image
+	{
+		_drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+		VkExtent3D drawImageExtent = { width, height, 1 };
+		_drawImage.imageExtent = drawImageExtent;
+		VkImageUsageFlags drawImageUsages{};
+		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
+		drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		drawImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+		VkImageCreateInfo rimg_info = vkinit::image_create_info(_drawImage.imageFormat, drawImageUsages, drawImageExtent);
+		VmaAllocationCreateInfo rimg_allocinfo = {};
+		rimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		rimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);// only found on GPU
+		vmaCreateImage(_allocator, &rimg_info, &rimg_allocinfo, &_drawImage.image, &_drawImage.allocation, nullptr);
+
+		VkImageViewCreateInfo rview_info = vkinit::imageview_create_info(_drawImage.imageFormat, _drawImage.image
+			, VK_IMAGE_ASPECT_COLOR_BIT);
+		VK_CHECK(vkCreateImageView(_device, &rview_info, nullptr, &_drawImage.imageView));
+	}
+
+	// MSAA pre-resolve image
+	
+	if (USE_MSAA) {
+		_drawImageBeforeMSAA.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+		VkExtent3D msaaImageExtent = { width, height, 1 };
+		VkImageUsageFlags msaaImageUsages{};
+		msaaImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		msaaImageUsages |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+		VkImageCreateInfo msaaimg_info = vkinit::image_create_info(_drawImageBeforeMSAA.imageFormat, msaaImageUsages, msaaImageExtent);
+		//msaaimg_info = vkinit::image_create_info(_drawImageBeforeMSAA.imageFormat, msaaImageUsages, msaaImageExtent);
+		msaaimg_info.samples = MSAA_SAMPLES;
+		VmaAllocationCreateInfo msaaimg_allocinfo = {};
+		msaaimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		msaaimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);// only found on GPU
+		vmaCreateImage(_allocator, &msaaimg_info, &msaaimg_allocinfo, &_drawImageBeforeMSAA.image, &_drawImageBeforeMSAA.allocation, nullptr);
+
+		VkImageViewCreateInfo rview_info_before_msaa = vkinit::imageview_create_info(
+			_drawImageBeforeMSAA.imageFormat, _drawImageBeforeMSAA.image, VK_IMAGE_ASPECT_COLOR_BIT);
+		VK_CHECK(vkCreateImageView(_device, &rview_info_before_msaa, nullptr, &_drawImageBeforeMSAA.imageView));
+	}
+	
+
+	// Depth Image
+	{
+
+		_depthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
+		VkExtent3D depthImageExtent = { width, height, 1 };
+		_depthImage.imageExtent = depthImageExtent;
+		VkImageUsageFlags depthImageUsages{};
+		depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		VkImageCreateInfo dimg_info = vkinit::image_create_info(_depthImage.imageFormat, depthImageUsages, depthImageExtent);
+		if (USE_MSAA) { dimg_info.samples = MSAA_SAMPLES; }
+		VmaAllocationCreateInfo dimg_allocinfo = {};
+		dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		dimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);// only found on GPU
+		vmaCreateImage(_allocator, &dimg_info, &dimg_allocinfo, &_depthImage.image, &_depthImage.allocation, nullptr);
+
+		VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(_depthImage.imageFormat, _depthImage.image
+			, VK_IMAGE_ASPECT_DEPTH_BIT);
+		VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImage.imageView));
+	}
+
+	
 }
 
 void VulkanEngine::create_swapchain(uint32_t width, uint32_t height) {
@@ -270,6 +349,17 @@ void VulkanEngine::destroy_swapchain() {
 	vkDestroySwapchainKHR(_device, _swapchain, nullptr);
 	for (int i = 0; i < _swapchainImageViews.size(); i++) {
 		vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
+	}
+}
+
+void VulkanEngine::destroy_draw_iamges() {
+	vkDestroyImageView(_device, _drawImage.imageView, nullptr);
+	vmaDestroyImage(_allocator, _drawImage.image, _drawImage.allocation);
+	vkDestroyImageView(_device, _depthImage.imageView, nullptr);
+	vmaDestroyImage(_allocator, _depthImage.image, _depthImage.allocation);
+	if (USE_MSAA) {
+		vkDestroyImageView(_device, _drawImageBeforeMSAA.imageView, nullptr);
+		vmaDestroyImage(_allocator, _drawImageBeforeMSAA.image, _drawImageBeforeMSAA.allocation);
 	}
 }
 
@@ -411,7 +501,7 @@ void VulkanEngine::update_scene()
 
 	auto end = std::chrono::system_clock::now();
 	auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-	stats.scene_update_time = elapsed.count() / 1000.f;
+	stats.scene_update_time.addValue(elapsed.count() / 1000.f);
 }
 
 
@@ -592,7 +682,7 @@ void VulkanEngine::init_fullscreen_pipeline()
 	_fullscreenPipeline.init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 	_fullscreenPipeline.init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
 	//_fullscreenPipeline.disable_multisampling();
-	_fullscreenPipeline.enable_msaa4();
+	_fullscreenPipeline.enable_msaa(MSAA_SAMPLES);
 	_fullscreenPipeline.init_blending(ShaderObject::BlendMode::NO_BLEND);
 	_fullscreenPipeline.disable_depthtesting();
 
@@ -625,15 +715,15 @@ void VulkanEngine::init_default_data()
 #pragma region Basic Textures
 	//3 default textures, white, grey, black. 1 pixel each
 	uint32_t white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));
-	_whiteImage = create_image((void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+	_whiteImage = create_image((void*)&white, 4, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
 		VK_IMAGE_USAGE_SAMPLED_BIT);
 
 	uint32_t grey = glm::packUnorm4x8(glm::vec4(0.66f, 0.66f, 0.66f, 1));
-	_greyImage = create_image((void*)&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+	_greyImage = create_image((void*)&grey, 4, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
 		VK_IMAGE_USAGE_SAMPLED_BIT);
 
 	uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
-	_blackImage = create_image((void*)&black, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+	_blackImage = create_image((void*)&black, 4, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
 		VK_IMAGE_USAGE_SAMPLED_BIT);
 
 	//checkerboard image
@@ -644,7 +734,7 @@ void VulkanEngine::init_default_data()
 			pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
 		}
 	}
-	_errorCheckerboardImage = create_image(pixels.data(), VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+	_errorCheckerboardImage = create_image(pixels.data(), 16 * 16 * 4, VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
 		VK_IMAGE_USAGE_SAMPLED_BIT);
 #pragma endregion
 
@@ -762,7 +852,7 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
 
 
 	// Execute at 8x8 thread groups
-	vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(_drawExtent.width / 8.0f)), static_cast<uint32_t>(std::ceil(_drawExtent.height / 8.0f)), 1);
+	vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(_windowExtent.width / 8.0f)), static_cast<uint32_t>(std::ceil(_windowExtent.height / 8.0f)), 1);
 
 
 }
@@ -935,7 +1025,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
 	auto end = std::chrono::system_clock::now();
 	auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-	stats.mesh_draw_time = elapsed.count() / 1000.f;
+	stats.mesh_draw_time.addValue(elapsed.count() / 1000.f);
 }
 
 void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -968,7 +1058,6 @@ void VulkanEngine::draw()
 
 	_drawExtent.height = static_cast<uint32_t>(std::min(_swapchainExtent.height, _drawImage.imageExtent.height) * _renderScale);
 	_drawExtent.width = static_cast<uint32_t>(std::min(_swapchainExtent.width, _drawImage.imageExtent.width) * _renderScale);
-
 
 	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
@@ -1061,8 +1150,6 @@ void VulkanEngine::run()
 			}
 
 			InputManager::Get().update(&e);
-
-			// imgui input handling
 			ImGui_ImplSDL2_ProcessEvent(&e);
 		}
 
@@ -1087,9 +1174,7 @@ void VulkanEngine::run()
 		// Camera Input Handling
 		mainCamera.processSDLEvent(isWindowInFocus && mouseLocked);
 
-		if (resize_requested) {
-			resize_swapchain();
-		}
+		if (resize_requested) { resize_swapchain(); }
 
 		// do not draw if we are minimized
 		if (stop_rendering) {
@@ -1121,9 +1206,9 @@ void VulkanEngine::run()
 			ImGui::SliderFloat("Model Scale", &globalModelScale, 0.1f, 20.0f);
 
 			if (ImGui::BeginChild("Stats")) {
-				ImGui::Text("frametime %f ms", stats.frametime);
-				ImGui::Text("draw time %f ms", stats.mesh_draw_time);
-				ImGui::Text("update time %f ms", stats.scene_update_time);
+				ImGui::Text("frametime %f ms", stats.frametime.getAverage());
+				ImGui::Text("draw time %f ms", stats.mesh_draw_time.getAverage());
+				ImGui::Text("update time %f ms", stats.scene_update_time.getAverage());
 				ImGui::Text("triangles %i", stats.triangle_count);
 				ImGui::Text("draws %i", stats.drawcall_count);
 			}
@@ -1144,7 +1229,8 @@ void VulkanEngine::run()
 
 		//convert to microseconds (integer), and then come back to miliseconds
 		auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-		stats.frametime = elapsed.count() / 1000.f;
+		
+		stats.frametime.addValue(elapsed.count() / 1000.f);
 	}
 }
 
@@ -1152,22 +1238,38 @@ void VulkanEngine::resize_swapchain() {
 	vkDeviceWaitIdle(_device);
 
 	destroy_swapchain();
-
+	destroy_draw_iamges();
 	int w, h;
 	// get new window size
 	SDL_GetWindowSize(_window, &w, &h);
 	_windowExtent.width = w;
 	_windowExtent.height = h;
 
+	fmt::print("New Screen Resolution: {}x{}\n", w, h);
+	// will always be one
 	_maxRenderScale = std::min(
 		(float)_drawImage.imageExtent.width / (float)_windowExtent.width
 		, (float)_drawImage.imageExtent.height / (float)_windowExtent.height
 	);
 	_maxRenderScale = std::max(_maxRenderScale, 1.0f);
-
+	_maxRenderScale = 1.0f;
 	_renderScale = std::min(_maxRenderScale, _renderScale);
-
 	create_swapchain(_windowExtent.width, _windowExtent.height);
+	create_draw_images(_windowExtent.width, _windowExtent.height);
+
+	// update compute descrtiptor
+	VkDescriptorImageInfo drawImageDescriptor{};
+	drawImageDescriptor.imageView = _drawImage.imageView;
+	drawImageDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	// needs to match the order of the bindings in the layout
+	std::vector<std::pair<VkDescriptorType, VkDescriptorImageInfo>> combined_descriptor = {
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageDescriptor }
+	};
+
+	computeImageDescriptorBuffer.set_data(_device, combined_descriptor, 0);
+
+
 
 	resize_requested = false;
 
@@ -1309,9 +1411,13 @@ AllocatedImage VulkanEngine::create_image(VkExtent3D size, VkFormat format, VkIm
 	return newImage;
 }
 
-AllocatedImage VulkanEngine::create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+
+
+AllocatedImage VulkanEngine::create_image(void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
 {
-	size_t data_size = size.depth * size.width * size.height * 4;
+
+	//size_t data_size = size.depth * size.width * size.height * get_channel_count(format);
+	size_t data_size = dataSize;
 	AllocatedBuffer uploadbuffer = create_buffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	memcpy(uploadbuffer.info.pMappedData, data, data_size);
@@ -1343,6 +1449,20 @@ AllocatedImage VulkanEngine::create_image(void* data, VkExtent3D size, VkFormat 
 	destroy_buffer(uploadbuffer);
 
 	return new_image;
+}
+
+int VulkanEngine::get_channel_count(VkFormat format)
+{
+	switch (format) {
+	case VK_FORMAT_R8G8B8A8_UNORM:
+		return 4;
+	case VK_FORMAT_R8G8B8_UNORM:
+		return 3;
+	case VK_FORMAT_R8_UNORM:
+		return 1;
+	default:
+		return 0;
+	}
 }
 
 void VulkanEngine::destroy_image(const AllocatedImage& img)
@@ -1388,8 +1508,6 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 			, engine->_physicalDevice, engine->_allocator, materialUniformLayout, 200);
 	}
 
-	pipeline_layout_initialized = true;
-
 	VkDescriptorSetLayout layouts[] = {
 		engine->gpuSceneDataDescriptorBufferSetLayout
 		, materialTextureLayout
@@ -1416,7 +1534,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 	opaquePipeline.shaderObject->init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 	opaquePipeline.shaderObject->init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
 	if (USE_MSAA) {
-		opaquePipeline.shaderObject->enable_msaa4();
+		opaquePipeline.shaderObject->enable_msaa(MSAA_SAMPLES);
 	}
 	else {
 		opaquePipeline.shaderObject->disable_multisampling();
@@ -1447,7 +1565,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 	transparentPipeline.shaderObject->init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 	transparentPipeline.shaderObject->init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
 	if (USE_MSAA) {
-		transparentPipeline.shaderObject->enable_msaa4();
+		transparentPipeline.shaderObject->enable_msaa(MSAA_SAMPLES);
 	}
 	else {
 		transparentPipeline.shaderObject->disable_multisampling();
@@ -1479,11 +1597,6 @@ MaterialInstance GLTFMetallic_Roughness::write_material(
 	, MaterialPass pass
 	, const MaterialResources& resources
 ) {
-	if (!pipeline_layout_initialized) {
-		fmt::print("Error: Pipeline Layout not initialized\n");
-		return {};
-	}
-
 	MaterialInstance matData;
 	matData.passType = pass;
 	if (pass == MaterialPass::Transparent) {

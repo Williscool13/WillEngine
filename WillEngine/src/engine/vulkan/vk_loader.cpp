@@ -1,7 +1,5 @@
 ﻿#include <vk_loader.h>
 
-
-
 VkFilter extract_filter(fastgltf::Filter filter)
 {
 	switch (filter) {
@@ -34,7 +32,20 @@ VkSamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter)
 	}
 }
 
-std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image)
+std::string getFileExtension(const std::string& filename) {
+	size_t dotPos = filename.find_last_of(".");
+	if (dotPos == std::string::npos) {
+		return ""; // No extension found
+	}
+	return filename.substr(dotPos + 1);
+}
+
+bool isKTXFile(const std::string& extension) {
+	return extension == "ktx" || extension == "ktx2";
+}
+
+
+std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image, std::filesystem::path filepath)
 {
 	AllocatedImage newImage{};
 
@@ -44,23 +55,71 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 		fastgltf::visitor{ 
 			[](auto& arg) {},
 			[&](fastgltf::sources::URI& filePath) {
+				fmt::print("Loading URI image\n");
 				assert(filePath.fileByteOffset == 0); // We don't support offsets with stbi.
 				assert(filePath.uri.isLocalPath()); // We're only capable of loading
 				// local files.
 				const std::string path(filePath.uri.path().begin(), filePath.uri.path().end()); // Thanks C++.
-				unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4);
-				if (data) {
-					VkExtent3D imagesize;
-					imagesize.width = width;
-					imagesize.height = height;
-					imagesize.depth = 1;
+				std::string fullpath = filepath.string() + "\\" + path;
+				std::string extension = getFileExtension(fullpath);
 
-					newImage = engine->create_image(data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT,false);
+				if (isKTXFile(extension)) {
+					ktxTexture* kTexture;
+					KTX_error_code ktxresult;
 
-					stbi_image_free(data);
+					ktxresult = ktxTexture_CreateFromNamedFile(
+						fullpath.c_str(),
+						KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
+						&kTexture);
+					
+
+					
+
+					if (ktxresult == KTX_SUCCESS) {
+						VkImageFormatProperties formatProperties;
+						VkResult result = vkGetPhysicalDeviceImageFormatProperties(engine->_physicalDevice
+							, ktxTexture_GetVkFormat(kTexture), VK_IMAGE_TYPE_2D
+							, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT, 0, &formatProperties);
+						if (result == VK_ERROR_FORMAT_NOT_SUPPORTED) {
+							fmt::print("Format not supported\n");
+							VkExtent3D imagesize;
+							imagesize.width = 1;
+							imagesize.height = 1;
+							imagesize.depth = 1;
+							unsigned char data[4] = { 255, 0, 255, 1 };
+							newImage = engine->create_image(data, 4, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+						}
+						else {
+							unsigned char* data = (unsigned char*)ktxTexture_GetData(kTexture);
+							VkExtent3D imageExtents;
+							imageExtents.width = kTexture->baseWidth;
+							imageExtents.height = kTexture->baseHeight;
+							imageExtents.depth = 1;
+							newImage = engine->create_image(data, kTexture->dataSize, imageExtents, ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT, false);
+						}
+						
+					}
+
+					ktxTexture_Destroy(kTexture);
 				}
+				else {
+					unsigned char* data = stbi_load(fullpath.c_str(), &width, &height, &nrChannels, 4);
+					if (data) {
+						VkExtent3D imagesize;
+						imagesize.width = width;
+						imagesize.height = height;
+						imagesize.depth = 1;
+						size_t size = width * height * 4;
+						newImage = engine->create_image(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+
+						stbi_image_free(data);
+					}
+				}
+				
+				
 			},
 			[&](fastgltf::sources::Array& vector) {
+				fmt::print("Loading Array image\n");
 				unsigned char* data = stbi_load_from_memory(vector.bytes.data(), static_cast<int>(vector.bytes.size()),
 					&width, &height, &nrChannels, 4);
 				if (data) {
@@ -68,13 +127,14 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 					imagesize.width = width;
 					imagesize.height = height;
 					imagesize.depth = 1;
-
-					newImage = engine->create_image(data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT,false);
+					size_t size = width * height * 4;
+					newImage = engine->create_image(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT,false);
 
 					stbi_image_free(data);
 				}
 			},
 			[&](fastgltf::sources::BufferView& view) {
+				fmt::print("Loading BufferView image\n");
 				auto& bufferView = asset.bufferViews[view.bufferViewIndex];
 				auto& buffer = asset.buffers[bufferView.bufferIndex];
 				// We only care about VectorWithMime here, because we
@@ -90,8 +150,8 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 								imagesize.width = width;
 								imagesize.height = height;
 								imagesize.depth = 1;
-
-								newImage = engine->create_image(data, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
+								size_t size = width * height * 4;
+								newImage = engine->create_image(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
 									VK_IMAGE_USAGE_SAMPLED_BIT,false);
 								stbi_image_free(data);
 							}
@@ -103,6 +163,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 	// if any of the attempts to load the data failed, we havent written the image
 	// so handle is null
 	if (newImage.image == VK_NULL_HANDLE) {
+		fmt::print("Image failed to load: {}\n", image.name.c_str());
 		return {};
 	}
 	else {
@@ -134,7 +195,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::s
 	if (!bool(gltfFile)) { fmt::print("Failed to open glTF file: {}\n", fastgltf::getErrorMessage(gltfFile.error())); return {}; }
 
 	std::filesystem::path path = filePath;
-	auto load = parser.loadGltfBinary(gltfFile.get(), path.parent_path(), gltfOptions);
+	auto load = parser.loadGltf(gltfFile.get(), path.parent_path(), gltfOptions);
 	if (!load) {
 		fmt::print("Failed to load glTF: {}\n", fastgltf::to_underlying(load.error()));
 		return {};
@@ -167,7 +228,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::s
 
 	// load all textures
 	for (fastgltf::Image& image : gltf.images) {
-		std::optional<AllocatedImage> img = load_image(engine, gltf, image);
+		std::optional<AllocatedImage> img = load_image(engine, gltf, image, path.parent_path());
 
 		if (img.has_value()) {
 			images.push_back(*img);

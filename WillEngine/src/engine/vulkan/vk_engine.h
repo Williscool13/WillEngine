@@ -73,11 +73,11 @@ struct FrameData {
 };
 
 struct EngineStats {
-	float frametime;
 	int triangle_count;
 	int drawcall_count;
-	float scene_update_time;
-	float mesh_draw_time;
+	RollingAverage frametime{ 500 };
+	RollingAverage scene_update_time{ 500 };
+	RollingAverage mesh_draw_time{ 500 };
 };
 
 struct MeshNode : public Node {
@@ -113,7 +113,6 @@ struct GLTFMetallic_Roughness {
 	//ShaderObject transparentPipeline;
 	VkPipelineLayout pipelineLayout;
 
-	bool pipeline_layout_initialized = false;
 	VkDescriptorSetLayout materialTextureLayout;
 	VkDescriptorSetLayout materialUniformLayout;
 	DescriptorBufferSampler materialTextureDescriptorBuffer;
@@ -250,7 +249,8 @@ public:
 	VkSampler _defaultSamplerLinear;
 	VkSampler _defaultSamplerNearest;
 	AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-	AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	AllocatedImage create_image(void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	int get_channel_count(VkFormat format);
 	void destroy_image(const AllocatedImage& img);
 
 	// Material Pipeline
@@ -283,5 +283,7 @@ private:
 	void init_default_data();
 
 	void create_swapchain(uint32_t width, uint32_t height);
+	void create_draw_images(uint32_t width, uint32_t height);
 	void destroy_swapchain();
+	void destroy_draw_iamges();
 };
