@@ -55,8 +55,40 @@ private:
     void clearAll();
 };
 
+struct MultiDrawData {
+    uint32_t firstIndex;
+    uint32_t indexCount;
+    uint32_t vertexOffset;
+    uint32_t instanceId;
+};
+struct PrimitiveData {
+    std::vector<MultiDrawVertex> vertices;
+    std::vector<uint32_t> indices;
+};
+
+struct LoadedGLTFMultiDraw {
+
+    // cosntruct buffers from these
+    std::vector<AllocatedImage> images;
+    std::vector<VkSampler> samplers;
+    std::vector<MaterialData> materials;
+
+    std::vector<PrimitiveData> primitives;
+    std::vector<std::shared_ptr<Node>> nodes;
+    std::vector<std::shared_ptr<Node>> topNodes;
+
+    VulkanEngine* creator;
+
+    ~LoadedGLTFMultiDraw() { clearAll(); };
 
 
+private:
 
-std::optional<std::vector<std::shared_ptr<MeshAsset>>> loadGltfMeshes(VulkanEngine* engine, std::filesystem::path filePath);
+    void clearAll();
+
+};
+
+
 std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::string_view filePath);
+
+std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngine* engine, std::string_view filePath);

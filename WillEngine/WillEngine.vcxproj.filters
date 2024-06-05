@@ -161,9 +161,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\gradient.comp">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="compile_shaders.sh">
       <Filter>shaders</Filter>
     </None>
@@ -171,15 +168,6 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="shaders\sky.comp">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\colored_triangle.vert">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\colored_triangle.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\colored_triangle_mesh.vert">
       <Filter>shaders</Filter>
     </None>
     <None Include="shaders\include\input_structures.glsl">
@@ -195,6 +183,15 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="shaders\fullscreen.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\meshIndirect.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\meshIndirect.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\gpu_cull.comp">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

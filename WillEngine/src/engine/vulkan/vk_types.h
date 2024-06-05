@@ -3,6 +3,11 @@
 #pragma once
 #include "will_engine.h"
 
+
+class DescriptorBufferUniform;
+class DescriptorBufferSampler;
+class ShaderObject;
+
 struct AllocatedImage {
 	VkImage image;
 	VkImageView imageView;
@@ -26,55 +31,46 @@ struct Vertex {
 	glm::vec4 color;
 };
 
-// binding 0
-//struct MultiDrawVertex {
-//	glm::vec3 position;
-//	float uv_x;
-//	glm::vec3 normal;
-//	float uv_y;
-//	glm::vec4 color;
-//	glm::mat4x4 modelMatrix;
-//	glm::mat3x4 inverseTransposeModelMatrix;
-//	uint16_t textureIndex1;
-//	uint16_t textureIndex2;
-//	float alphaCutoff;
-//};
-//
-//// binding 1
-//uint16_t textureIndex;
-//
-//glm::mat4 modelMatrix;
-//glm::mat4 inverseTransposeModelMatrix;
-//VkDeviceAddress vertexBuffer;
-//float alphaCutoff;
-//
-//struct BoundingSphere
-//{
-//	BoundingSphere() = default;
-//	explicit BoundingSphere(const std::vector<glm::vec3>& pts);
-//	glm::vec3 center = { 0, 0, 0 };
-//	float     radius = 0;
-//};
-//
-//struct GpuModelInformation
-//{
-//	glm::vec3 bounding_sphere_center;
-//	float     bounding_sphere_radius;
-//	uint32_t  texture_index = 0;
-//	uint32_t  firstIndex = 0;
-//	uint32_t  indexCount = 0;
-//	uint32_t  _pad = 0;
-//};
-//
-//struct SceneModel
-//{
-//	std::vector<MultiDrawVertex>                  vertices;
-//	std::vector<std::array<uint16_t, 3>> triangles;
-//	size_t                               vertex_buffer_offset = 0;
-//	size_t                               index_buffer_offset = 0;
-//	size_t                               texture_index = 0;
-//	BoundingSphere                       bounding_sphere;
-//};
+//  Vertex Data
+struct MultiDrawVertex {
+	glm::vec3 position;
+	float uv_x;
+	glm::vec3 normal;
+	float uv_y;
+	glm::vec4 color;
+	uint16_t materialIndex; // vertex is implicitly associated with a mesh, which is directly associated with a single material
+};
+
+struct MeshData {
+	std::vector<MultiDrawVertex> vertices;
+	std::vector<uint32_t> indices;
+	size_t vertex_buffer_offset = 0;
+	size_t index_buffer_offset = 0;
+};
+
+
+
+struct InstanceData {
+	glm::mat4x4 modelMatrix; // will be accessed in shader through appropriate gl_instanceID
+};
+
+
+struct MaterialData {
+	glm::vec4 color_factor;
+	glm::vec4 metal_rough_factors;
+	uint16_t textureIndex1;
+	uint16_t samplerIndex1;
+	uint16_t textureIndex2;
+	uint16_t samplerIndex2;
+	float alphaCutoff;
+};
+
+struct BoundindSphere {
+	float x;
+	float y;
+	float z;
+	float radius;
+};
 
 
 // holds the resources needed for a mesh
@@ -100,9 +96,6 @@ enum class MaterialPass :uint8_t {
 	Transparent,
 	Other
 };
-class DescriptorBufferUniform;
-class DescriptorBufferSampler;
-class ShaderObject;
 struct MaterialPipeline {
 	//VkPipeline pipeline;
 	std::shared_ptr<ShaderObject> shaderObject;

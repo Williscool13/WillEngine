@@ -230,10 +230,11 @@ void DescriptorBufferSampler::set_data(VkDevice device, std::vector<std::pair<Vk
 			descriptor_size,
 			buffer_ptr_offset
 		);
-
+	
 		accum_offset += descriptor_size;
 	}
 }
+
 
 VkDescriptorBufferBindingInfoEXT DescriptorBufferSampler::get_descriptor_buffer_binding_info(VkDevice device)
 {

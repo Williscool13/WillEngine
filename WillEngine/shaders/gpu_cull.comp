@@ -1,0 +1,56 @@
+#version 460
+
+#extension GL_EXT_buffer_reference : require
+#extension GL_GOOGLE_include_directive : require
+
+#include "indirect_input_structures.glsl"
+
+layout(local_size_x = 64) in;
+
+struct ModelInformation
+{
+	float x;
+	float y;
+	float z;
+	float radius;
+};
+
+struct VkDrawIndexedIndirectCommand
+{
+	uint indexCount;
+	uint instanceCount;
+	uint firstIndex;
+	int  vertexOffset;
+	uint firstInstance;
+};
+
+
+layout(std430, set = 3, binding = 0) buffer readonly ModelInformationBuffer
+{
+	ModelInformation arr[];
+}
+model_buffer;
+
+
+
+
+layout(std430, buffer_reference) buffer CommandBuffer
+{
+	VkDrawIndexedIndirectCommand commands[];
+} command_buffer;
+
+layout(set = 4, binding = 0) buffer Addresses
+{
+	CommandBuffer command_buffer;
+} command_buffer_address;
+
+
+void main()
+{
+	uint id = gl_GlobalInvocationID.x;
+	if (id >= sceneData.model_count)
+	{
+		return;
+	}
+	command_buffer_address.command_buffer.commands[id].instanceCount = 1;
+}

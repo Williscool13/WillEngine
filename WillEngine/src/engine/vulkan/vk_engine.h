@@ -18,6 +18,7 @@ constexpr unsigned int FRAME_OVERLAP = 2;
 
 struct MeshAsset;
 struct LoadedGLTF;
+struct LoadedGLTFMultiDraw;
 
 struct DeletionQueue
 {
@@ -87,6 +88,12 @@ struct MeshNode : public Node {
 	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override;
 };
 
+struct MeshNodeMultiDraw : public Node {
+	
+	uint32_t meshIndex;
+	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override;
+};
+
 struct RenderObject {
 	uint32_t indexCount;
 	uint32_t firstIndex;
@@ -106,11 +113,8 @@ struct DrawContext {
 class VulkanEngine;
 
 struct GLTFMetallic_Roughness {
-	// 2x pipelines
 	MaterialPipeline opaquePipeline;
 	MaterialPipeline transparentPipeline;	
-	//ShaderObject opaquePipeline;
-	//ShaderObject transparentPipeline;
 	VkPipelineLayout pipelineLayout;
 
 	VkDescriptorSetLayout materialTextureLayout;
@@ -153,36 +157,81 @@ struct GLTFMetallic_Roughness {
 };
 
 
+
+struct GPUSceneDataMultiDraw {
+	glm::mat4 view;
+	glm::mat4 proj;
+	glm::mat4 viewproj;
+	glm::vec4 ambientColor;
+	glm::vec4 sunlightDirection; // w for sun power
+	glm::vec4 sunlightColor;
+	uint32_t model_count;
+};
+
+struct MultiDrawIndirectBuffers {
+	AllocatedBuffer indirectDrawBuffer;
+};
+
 struct GLTFMetallic_RoughnessMultiDraw {
 	VulkanEngine* engine;
 
+	std::shared_ptr<ShaderObject> shaderObject;
+	// holds indirect draw buffers. Transparent will not go through compute culling.
 
-	// scene representation
-	// model = blabla
+	VkPipelineLayout layout;
+	VkDescriptorSetLayout bufferAddressesDescriptorSetLayout;
+	VkDescriptorSetLayout sceneDataDescriptorSetLayout;
+	VkDescriptorSetLayout textureDescriptorSetLayout;
+
+	AllocatedBuffer indexBuffer;
+
+	// BINDING 0: BUFFER ADDRESSES
+	DescriptorBufferUniform buffer_addresses;
+	AllocatedBuffer buffer_addresses_underlying;
+	AllocatedBuffer vertexBuffer;
+	AllocatedBuffer materialBuffer;
+	AllocatedBuffer instanceBuffer; 
+	// access correct instance data w/ gl_instanceID. 
+	//  IMPORTANT: WHEN DEFINING VkDrawIndexedIndirectCommand, MAKE SURE FIRST_INSTANCE IS THE INDEX OF THE INSTANCE DATA
+	
+	// BINDING 1: SCENE DATA
+	DescriptorBufferUniform scene_data;
+	AllocatedBuffer sceneDataBuffer;
+	// BINDING 2: TEXTURE DATA
+	//	when initializing, set descriptor count to be equal to the number of textures
+	DescriptorBufferUniform texture_data;
+	AllocatedBuffer textureBuffer;
+	AllocatedBuffer samplerBuffer;
 
 
+	// BINDING 3: COMPUTE CULLING DATA
+	//  MAKE IT
+
+	// BINDING 4: INDIRECT DRAW BUFFER
+	DescriptorBufferUniform indirect_draw_buffer_address;
+	AllocatedBuffer indirect_draw_buffer_underlying;
+	AllocatedBuffer indirectDrawBuffer;
 
 
+	MultiDrawIndirectBuffers opaqueDrawBuffer;
+	MultiDrawIndirectBuffers transparentDrawBuffer;
 
-	// index buffer
-	//  will be passed into pipeline with vkCmdBindIndexBuffer
-
-	// buffer buffer
-	// passes vertex and texture addresses to shaders
-	// vertex buffer
-	//  passed to shaders w/ buffer device address
-	// texture buffer
-	//  passed to shaders w/ buffer device address
+	void build_pipelines(VulkanEngine* engine);
 
 
-	// indirect draw buffer buffer
-	//  passes compute shader address of indirect draw buffer
-	// inderect draw buffer
-	//  passed to compute shader to calculate culling through another buffer
+	// buffer building
+	size_t vertex_buffer_size = 0;
+	size_t index_buffer_size = 0;
+	size_t number_of_instances = 0;
+	std::vector<InstanceData> instanceData;
+	std::vector<MeshData> meshData;
+	void build_buffers(VulkanEngine* engine, LoadedGLTFMultiDraw& scene);
+	void recursive_node_process(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix);
 
-
-	// 
+	bool buffersBuilt{ false };
 };
+
+
 
 //struct MultiDrawIndirect {
 //	std::vector<SceneModel> models;
@@ -285,6 +334,9 @@ public:
 	void resize_swapchain();
 
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	AllocatedBuffer create_staging_buffer(size_t allocSize);
+	void copy_buffer(AllocatedBuffer src, AllocatedBuffer dst, VkDeviceSize size);
+	VkDeviceAddress get_buffer_address(AllocatedBuffer buffer);
 	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 
 	void destroy_buffer(const AllocatedBuffer& buffer);
@@ -313,6 +365,7 @@ public:
 	GLTFMetallic_Roughness metallicRoughnessPipelines;
 	DrawContext mainDrawContext;
 
+	GLTFMetallic_RoughnessMultiDraw testMultiDraw;
 
 
 	GPUSceneData sceneData;
@@ -321,6 +374,7 @@ public:
 	AllocatedBuffer gpuSceneDataBuffer;
 	float globalModelScale{ 1.0f };
 	std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
+	std::unordered_map<std::string, std::shared_ptr<LoadedGLTFMultiDraw>> loadedMultiDrawScenes;
 	void update_scene();
 
 private:

@@ -190,19 +190,15 @@ compile_shaders.sh</Command>
   </ItemGroup>
   <ItemGroup>
     <None Include="compile_shaders.sh" />
-    <None Include="shaders\colored_triangle.frag" />
-    <None Include="shaders\colored_triangle.vert" />
-    <None Include="shaders\colored_triangle_mesh.vert" />
     <None Include="shaders\fullscreen.frag" />
     <None Include="shaders\fullscreen.vert" />
-    <None Include="shaders\gradient.comp">
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
-    </None>
+    <None Include="shaders\gpu_cull.comp" />
     <None Include="shaders\gradient_color.comp" />
     <None Include="shaders\include\input_structures.glsl" />
     <None Include="shaders\mesh.frag" />
     <None Include="shaders\mesh.vert" />
+    <None Include="shaders\meshIndirect.frag" />
+    <None Include="shaders\meshIndirect.vert" />
     <None Include="shaders\sky.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

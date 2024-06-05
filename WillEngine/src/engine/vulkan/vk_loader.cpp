@@ -406,7 +406,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::s
 
 			newmesh->surfaces.push_back(newSurface);
 		}
-
 		newmesh->meshBuffers = engine->uploadMesh(indices, vertices);
 	}
 
@@ -427,6 +426,282 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::s
 
 		nodes.push_back(newNode);
 		file.nodes[node.name.c_str()];
+
+		std::visit(
+			fastgltf::visitor{
+				[&](fastgltf::math::fmat4x4 matrix) {
+					memcpy(&newNode->localTransform, matrix.data(), sizeof(matrix));
+				},
+				[&](fastgltf::TRS transform) {
+					glm::vec3 tl(transform.translation[0], transform.translation[1], transform.translation[2]);
+					glm::quat rot(transform.rotation[3], transform.rotation[0], transform.rotation[1], transform.rotation[2]);
+					glm::vec3 sc(transform.scale[0], transform.scale[1], transform.scale[2]);
+
+					glm::mat4 tm = glm::translate(glm::mat4(1.f), tl);
+					glm::mat4 rm = glm::toMat4(rot);
+					glm::mat4 sm = glm::scale(glm::mat4(1.f), sc);
+
+					newNode->localTransform = tm * rm * sm;
+				}
+			}
+			, node.transform
+					);
+	}
+
+	// Node Hierarchy
+	for (int i = 0; i < gltf.nodes.size(); i++) {
+		fastgltf::Node& node = gltf.nodes[i];
+		std::shared_ptr<Node>& sceneNode = nodes[i];
+		for (auto& c : node.children) {
+			sceneNode->children.push_back(nodes[c]);
+			nodes[c]->parent = sceneNode;
+		}
+	}
+
+	// find the top nodes, with no parents
+	for (auto& node : nodes) {
+		if (node->parent.lock() == nullptr) {
+			file.topNodes.push_back(node);
+			node->refreshTransform(glm::mat4{ 1.f });
+		}
+	}
+
+	return scene;
+}
+
+std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngine* engine, std::string_view filePath)
+{
+	fmt::print("Loading GLTF: {}\n", filePath);
+
+	std::shared_ptr<LoadedGLTFMultiDraw> scene = std::make_shared<LoadedGLTFMultiDraw>();
+	scene->creator = engine;
+	LoadedGLTFMultiDraw& file = *scene.get();
+
+	fastgltf::Parser parser{};
+
+	constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember
+		| fastgltf::Options::AllowDouble
+		//| fastgltf::Options::LoadGLBBuffers 
+		| fastgltf::Options::LoadExternalBuffers;
+
+	fastgltf::GltfDataBuffer data;
+	data.FromPath(filePath);
+	fastgltf::Asset gltf;
+
+	auto gltfFile = fastgltf::MappedGltfFile::FromPath(filePath);
+	if (!bool(gltfFile)) { fmt::print("Failed to open glTF file: {}\n", fastgltf::getErrorMessage(gltfFile.error())); return {}; }
+
+	std::filesystem::path path = filePath;
+	auto load = parser.loadGltf(gltfFile.get(), path.parent_path(), gltfOptions);
+	if (!load) { fmt::print("Failed to load glTF: {}\n", fastgltf::to_underlying(load.error())); return {}; }
+
+	gltf = std::move(load.get());
+
+	// load samplers
+	for (fastgltf::Sampler& sampler : gltf.samplers) {
+
+		VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, .pNext = nullptr };
+		sampl.maxLod = VK_LOD_CLAMP_NONE;
+		sampl.minLod = 0;
+
+		sampl.magFilter = extract_filter(sampler.magFilter.value_or(fastgltf::Filter::Nearest));
+		sampl.minFilter = extract_filter(sampler.minFilter.value_or(fastgltf::Filter::Nearest));
+
+		sampl.mipmapMode = extract_mipmap_mode(sampler.minFilter.value_or(fastgltf::Filter::Nearest));
+
+		VkSampler newSampler;
+		vkCreateSampler(engine->_device, &sampl, nullptr, &newSampler);
+
+		file.samplers.push_back(newSampler);
+	}
+
+	// load all textures
+	file.images.reserve(gltf.images.size());
+	for (int i = 0; i < gltf.images.size(); i++) {
+		fastgltf::Image& image = gltf.images[i];
+		int j = 0;
+		std::optional<AllocatedImage> img = load_image(engine, gltf, image, path.parent_path());
+
+		if (img.has_value()) {
+			file.images.emplace_back(*img);
+			//file.images[i] = *img;
+		}
+		else {
+			fmt::print("Failed to load iamge, this is not supported");
+			abort();
+		}
+	}
+	assert(file.images.size() == gltf.images.size());
+
+	std::vector<MaterialPass> materialType;
+	materialType.reserve(gltf.materials.size());
+	for (int i=0;i<gltf.materials.size();i++) {
+		MaterialData data;
+		data.color_factor = glm::vec4(
+			  gltf.materials[i].pbrData.baseColorFactor[0]
+			, gltf.materials[i].pbrData.baseColorFactor[1]
+			, gltf.materials[i].pbrData.baseColorFactor[2]
+			, gltf.materials[i].pbrData.baseColorFactor[3]
+		);
+		data.metal_rough_factors.x = gltf.materials[i].pbrData.metallicFactor;
+		data.metal_rough_factors.y = gltf.materials[i].pbrData.roughnessFactor;
+		data.alphaCutoff = 0.0f;
+		materialType.push_back(MaterialPass::MainColor);
+
+		if (gltf.materials[i].alphaMode == fastgltf::AlphaMode::Blend) {
+			materialType[i] = MaterialPass::Transparent;
+		}
+		else if (gltf.materials[i].alphaMode == fastgltf::AlphaMode::Mask) {
+			data.alphaCutoff = gltf.materials[i].alphaCutoff;
+		}
+
+		// grab textures from gltf file
+		if (gltf.materials[i].pbrData.baseColorTexture.has_value()) {
+			size_t img = 0;
+			size_t sam = 0;
+			if (gltf.textures[gltf.materials[i].pbrData.baseColorTexture.value().textureIndex].imageIndex.has_value()) {
+				img = gltf.textures[gltf.materials[i].pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
+				//materialResources.colorImage = images[img];
+			}
+			else {
+				fmt::print("Texture has no image index\n");
+				abort();
+			}
+			if (gltf.textures[gltf.materials[i].pbrData.baseColorTexture.value().textureIndex].samplerIndex.has_value()) {
+				sam = gltf.textures[gltf.materials[i].pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
+			}
+			else {
+				fmt::print("Texture has no sampler index\n");
+				abort();
+			}
+			data.textureIndex1 = img;
+			data.samplerIndex1 = sam;	
+		}
+		if (gltf.materials[i].pbrData.metallicRoughnessTexture.has_value()) {
+			size_t img = 0;
+			size_t sam = 0;
+			if (gltf.textures[gltf.materials[i].pbrData.metallicRoughnessTexture.value().textureIndex].imageIndex.has_value()) {
+				img = gltf.textures[gltf.materials[i].pbrData.metallicRoughnessTexture.value().textureIndex].imageIndex.value();
+				//materialResources.colorImage = images[img];
+			}
+			else {
+				fmt::print("Metallic Texture has no image index\n");
+				abort();
+			}
+			if (gltf.textures[gltf.materials[i].pbrData.metallicRoughnessTexture.value().textureIndex].samplerIndex.has_value()) {
+				sam = gltf.textures[gltf.materials[i].pbrData.metallicRoughnessTexture.value().textureIndex].samplerIndex.value();
+			}
+			else {
+				fmt::print("Metallic Texture has no sampler index\n");
+				abort();
+			}
+			data.textureIndex2 = img;
+			data.samplerIndex2 = sam;
+		}
+
+		file.materials.push_back(data);
+	}
+	assert(file.materials.size() == gltf.materials.size());
+
+	std::vector<MultiDrawVertex> vertices;
+	std::vector<uint32_t> indices;
+	for (fastgltf::Mesh& mesh : gltf.meshes) {
+
+		indices.clear();
+		vertices.clear();
+
+		for (auto&& p : mesh.primitives) {
+			size_t initial_vtx = vertices.size();
+
+			// load indexes
+			{
+				fastgltf::Accessor& indexaccessor = gltf.accessors[p.indicesAccessor.value()];
+				indices.reserve(indices.size() + indexaccessor.count);
+
+				fastgltf::iterateAccessor<std::uint32_t>(gltf, indexaccessor,
+					[&](std::uint32_t idx) {
+						indices.push_back(idx + static_cast<uint32_t>(initial_vtx));
+					});
+			}
+
+			// load vertex positions
+			{
+				fastgltf::Accessor& posAccessor = gltf.accessors[p.findAttribute("POSITION")->second];
+				vertices.resize(vertices.size() + posAccessor.count);
+
+				fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, posAccessor,
+					[&](glm::vec3 v, size_t index) {
+						MultiDrawVertex newvtx;
+						newvtx.position = v;
+						newvtx.normal = { 1, 0, 0 };
+						newvtx.color = glm::vec4{ 1.f };
+						newvtx.uv_x = 0;
+						newvtx.uv_y = 0;
+						vertices[initial_vtx + index] = newvtx;
+					});
+
+
+				for (int i = initial_vtx; i < vertices.size(); i++) {
+					if (p.materialIndex.has_value()) {
+						vertices[i].materialIndex = p.materialIndex.value();
+					}
+					else {
+						vertices[i].materialIndex = 0;
+					}
+				}
+			}
+
+			// load vertex normals
+			auto normals = p.findAttribute("NORMAL");
+			if (normals != p.attributes.end()) {
+
+				fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, gltf.accessors[(*normals).second],
+					[&](glm::vec3 v, size_t index) {
+						vertices[initial_vtx + index].normal = v;
+					});
+			}
+
+			// load UVs
+			auto uv = p.findAttribute("TEXCOORD_0");
+			if (uv != p.attributes.end()) {
+
+				fastgltf::iterateAccessorWithIndex<glm::vec2>(gltf, gltf.accessors[(*uv).second],
+					[&](glm::vec2 v, size_t index) {
+						vertices[initial_vtx + index].uv_x = v.x;
+						vertices[initial_vtx + index].uv_y = v.y;
+					});
+			}
+
+			// load vertex colors
+			auto colors = p.findAttribute("COLOR_0");
+			if (colors != p.attributes.end()) {
+
+				fastgltf::iterateAccessorWithIndex<glm::vec4>(gltf, gltf.accessors[(*colors).second],
+					[&](glm::vec4 v, size_t index) {
+						vertices[initial_vtx + index].color = v;
+					});
+			}
+		}
+		file.primitives.push_back({ vertices, indices });
+
+	}
+
+	std::vector<std::shared_ptr<Node>> nodes;
+	for (fastgltf::Node& node : gltf.nodes) {
+		std::shared_ptr<Node> newNode;
+
+		// find if the node has a mesh, and if it does hook it to the mesh pointer and allocate it with the meshnode class
+		if (node.meshIndex.has_value()) {
+			newNode = std::make_shared<MeshNodeMultiDraw>();
+			static_cast<MeshNodeMultiDraw*>(newNode.get())->meshIndex = *node.meshIndex;
+		}
+		else {
+			newNode = std::make_shared<Node>();
+		}
+
+
+		nodes.push_back(newNode);
+		file.nodes.push_back(newNode);
 
 		std::visit(
 			fastgltf::visitor{
@@ -508,4 +783,25 @@ void LoadedGLTF::clearAll()
 		vkDestroySampler(dv, sampler, nullptr);
 	}
 
+}
+
+void LoadedGLTFMultiDraw::clearAll()
+{
+	VkDevice dv = creator->_device;
+
+	for (auto& image : images) {
+
+		if (image.image == creator->_errorCheckerboardImage.image) {
+			//dont destroy the default images
+			continue;
+		}
+
+		creator->destroy_image(image);
+	}
+
+	for (auto& sampler : samplers) {
+		vkDestroySampler(dv, sampler, nullptr);
+	}
+
+	fmt::print("Destroying Loaded GLTF Multi Draw Struct");
 }
