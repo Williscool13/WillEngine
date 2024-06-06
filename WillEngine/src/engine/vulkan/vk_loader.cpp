@@ -297,17 +297,22 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::s
 		materialResources.dataBuffer = buffer;
 		materialResources.dataBufferSize = sizeof(GLTFMetallic_Roughness::MaterialConstants);
 
+		
 		// grab textures from gltf file
 		if (mat.pbrData.baseColorTexture.has_value()) {
 			if (gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.has_value()) {
 				size_t img = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
 				materialResources.colorImage = images[img];
+				fmt::print("Early Test 1, DUCK");
 			}
 			if (gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].samplerIndex.has_value()) {
 				size_t sampler = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
 				materialResources.colorSampler = file.samplers[sampler];
 			}
-
+			fmt::print("Early Test 2, DUCK");
+		}
+		else {
+			fmt::print("Early Test 3, DUCK");
 
 		}
 		// build material
@@ -497,9 +502,14 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 
 	gltf = std::move(load.get());
 
-	// load samplers
-	for (fastgltf::Sampler& sampler : gltf.samplers) {
+	// Load Samplers
+	//  sampler 0 is the default nearest sampler
+	size_t samplerOffset = 1;
+	file.samplers.resize(gltf.samplers.size() + samplerOffset);
+	file.samplers[0] = engine->_defaultSamplerNearest;
 
+	for (int i = 0; i < gltf.samplers.size(); i++) {
+		fastgltf::Sampler& sampler = gltf.samplers[i];
 		VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, .pNext = nullptr };
 		sampl.maxLod = VK_LOD_CLAMP_NONE;
 		sampl.minLod = 0;
@@ -512,26 +522,30 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 		VkSampler newSampler;
 		vkCreateSampler(engine->_device, &sampl, nullptr, &newSampler);
 
-		file.samplers.push_back(newSampler);
+		file.samplers[i+samplerOffset] = newSampler;
 	}
+	assert(file.samplers.size() == gltf.samplers.size() + samplerOffset);
 
-	// load all textures
-	file.images.reserve(gltf.images.size());
+	// Load Images
+	//  image 0 is the default white image
+	size_t imageOffset = 1;
+	file.images.resize(gltf.images.size() + imageOffset);
+	file.images[0] = engine->_whiteImage;
+
 	for (int i = 0; i < gltf.images.size(); i++) {
+
 		fastgltf::Image& image = gltf.images[i];
-		int j = 0;
 		std::optional<AllocatedImage> img = load_image(engine, gltf, image, path.parent_path());
 
 		if (img.has_value()) {
-			file.images.emplace_back(*img);
-			//file.images[i] = *img;
+			file.images[i+imageOffset] = *img;
 		}
 		else {
-			fmt::print("Failed to load iamge, this is not supported");
-			abort();
+			file.images[i + imageOffset] = engine->_errorCheckerboardImage;
+			fmt::print("Image failed to load: {}\n", image.name.c_str());
 		}
 	}
-	assert(file.images.size() == gltf.images.size());
+	assert(file.images.size() == gltf.images.size() + imageOffset);
 
 	std::vector<MaterialPass> materialType;//
 	//materialType.reserve(gltf.materials.size());
@@ -546,6 +560,12 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 		data.metal_rough_factors.x = gltf.materials[i].pbrData.metallicFactor;
 		data.metal_rough_factors.y = gltf.materials[i].pbrData.roughnessFactor;
 		data.alphaCutoff.x = 0.0f;
+
+
+		data.texture_image_indices.x = 0;
+		data.texture_sampler_indices.x = 0;
+		data.texture_image_indices.y = 0;
+		data.texture_sampler_indices.y = 0;
 		materialType.push_back(MaterialPass::MainColor);
 
 		if (gltf.materials[i].alphaMode == fastgltf::AlphaMode::Blend) {
@@ -575,9 +595,10 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 				fmt::print("Texture has no sampler index\n");
 				abort();
 			}
-			data.texture_image_indices.x   = img;
-			data.texture_sampler_indices.x = sam;
+			data.texture_image_indices.x   = img + imageOffset;
+			data.texture_sampler_indices.x = sam + samplerOffset;
 		}
+
 		if (gltf.materials[i].pbrData.metallicRoughnessTexture.has_value()) {
 			size_t img = 0;
 			size_t sam = 0;
@@ -597,8 +618,8 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 				fmt::print("Metallic Texture has no sampler index\n");
 				abort();
 			}
-			data.texture_image_indices.y = img;
-			data.texture_sampler_indices.y = sam;
+			data.texture_image_indices.y = img + imageOffset;
+			data.texture_sampler_indices.y = sam + samplerOffset;
 		}
 
 		file.materials.push_back(data);
@@ -638,19 +659,14 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 						newvtx.normal = { 1, 0, 0 };
 						newvtx.color = glm::vec4{ 1.f };
 						newvtx.uv = glm::vec2(0, 0);
-						
+						newvtx.materialIndex = 0;
+
+						if (p.materialIndex.has_value()) {
+							newvtx.materialIndex = p.materialIndex.value();
+						}
+
 						vertices[initial_vtx + index] = newvtx;
 					});
-
-
-				for (int i = initial_vtx; i < vertices.size(); i++) {
-					if (p.materialIndex.has_value()) {
-						vertices[i].materialIndex = p.materialIndex.value();
-					}
-					else {
-						vertices[i].materialIndex = 0;
-					}
-				}
 			}
 
 			// load vertex normals
@@ -792,7 +808,9 @@ void LoadedGLTFMultiDraw::clearAll()
 
 	for (auto& image : images) {
 
-		if (image.image == creator->_errorCheckerboardImage.image) {
+		if (image.image == creator->_errorCheckerboardImage.image
+			|| image.image == creator->_whiteImage.image
+			|| image.image == creator->_blackImage.image) {
 			//dont destroy the default images
 			continue;
 		}
@@ -801,6 +819,11 @@ void LoadedGLTFMultiDraw::clearAll()
 	}
 
 	for (auto& sampler : samplers) {
+		if (sampler == creator->_defaultSamplerNearest
+			|| sampler == creator->_defaultSamplerLinear) {
+			//dont destroy the default samplers
+			continue;
+		}
 		vkDestroySampler(dv, sampler, nullptr);
 	}
 

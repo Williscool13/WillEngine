@@ -12,19 +12,22 @@ layout (location = 0) out vec4 outFragColor;
 
 
 
-layout(set = 1, binding = 0) uniform sampler samplers[32];
-layout(set = 1, binding = 32) uniform texture2D textures[255];
+layout(set = 2, binding = 0) uniform sampler samplers[32];
+layout(set = 2, binding = 1) uniform texture2D textures[255];
 
 
 void main() 
 {
 	Material m = buffer_addresses.materialBufferDeviceAddress.materials[inMaterialIndex];
+	uint colorSamplerIndex = uint(m.texture_sampler_indices.x);
+	uint colorImageIndex =	 uint(m.texture_image_indices.x);
+	vec4 _col = texture(sampler2D(textures[colorImageIndex], samplers[colorSamplerIndex]), inUV);
 	//vec4 _col = texture(sampler2D(colorI, colorS), inUV);
 	//vec4 _col = vec4(texture(textures[m.texture_index1], inUV));
 	
 	//vec4 _col = vec4(inColor, 1.0);
-	//_col *= m.color_factor;
-	vec4 _col = m.color_factor;
+	_col *= m.color_factor;
+	//vec4 _col = m.color_factor;
 
 	if (_col.w < m.alpha_cutoff.w) {
 		discard;

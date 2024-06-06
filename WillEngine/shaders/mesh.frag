@@ -27,6 +27,5 @@ void main()
 	vec3 ambient = color *  sceneData.ambientColor.xyz;
 
 
-	//outFragColor = vec4(color * lightValue *  sceneData.sunlightColor.w + ambient , _col.w);
-	outFragColor = vec4(materialData.colorFactors);
+	outFragColor = vec4(color * lightValue *  sceneData.sunlightColor.w + ambient , _col.w);
 } 

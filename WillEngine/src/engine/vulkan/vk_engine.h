@@ -227,6 +227,7 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	void recursive_node_process(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix);
 
 	bool buffersBuilt{ false };
+	void destroy(VkDevice device, VmaAllocator allocator);
 };
 
 
