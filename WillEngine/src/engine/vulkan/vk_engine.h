@@ -199,9 +199,7 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	AllocatedBuffer sceneDataBuffer;
 	// BINDING 2: TEXTURE DATA
 	//	when initializing, set descriptor count to be equal to the number of textures
-	DescriptorBufferUniform texture_data;
-	AllocatedBuffer textureBuffer;
-	AllocatedBuffer samplerBuffer;
+	DescriptorBufferSampler texture_data;
 
 
 	// BINDING 3: COMPUTE CULLING DATA

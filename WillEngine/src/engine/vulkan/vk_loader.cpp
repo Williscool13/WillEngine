@@ -533,8 +533,8 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 	}
 	assert(file.images.size() == gltf.images.size());
 
-	std::vector<MaterialPass> materialType;
-	materialType.reserve(gltf.materials.size());
+	std::vector<MaterialPass> materialType;//
+	//materialType.reserve(gltf.materials.size());
 	for (int i=0;i<gltf.materials.size();i++) {
 		MaterialData data;
 		data.color_factor = glm::vec4(
@@ -545,58 +545,60 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 		);
 		data.metal_rough_factors.x = gltf.materials[i].pbrData.metallicFactor;
 		data.metal_rough_factors.y = gltf.materials[i].pbrData.roughnessFactor;
-		data.alphaCutoff = 0.0f;
+		data.alphaCutoff.x = 0.0f;
 		materialType.push_back(MaterialPass::MainColor);
 
 		if (gltf.materials[i].alphaMode == fastgltf::AlphaMode::Blend) {
 			materialType[i] = MaterialPass::Transparent;
 		}
 		else if (gltf.materials[i].alphaMode == fastgltf::AlphaMode::Mask) {
-			data.alphaCutoff = gltf.materials[i].alphaCutoff;
+			data.alphaCutoff.x = gltf.materials[i].alphaCutoff;
 		}
 
 		// grab textures from gltf file
 		if (gltf.materials[i].pbrData.baseColorTexture.has_value()) {
 			size_t img = 0;
 			size_t sam = 0;
-			if (gltf.textures[gltf.materials[i].pbrData.baseColorTexture.value().textureIndex].imageIndex.has_value()) {
-				img = gltf.textures[gltf.materials[i].pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
-				//materialResources.colorImage = images[img];
+			size_t texture_index = gltf.materials[i].pbrData.baseColorTexture.value().textureIndex;
+			if (gltf.textures[texture_index].imageIndex.has_value()) {
+				img = gltf.textures[texture_index].imageIndex.value();
+				fmt::print("image found with index {}\n", img);
 			}
 			else {
 				fmt::print("Texture has no image index\n");
 				abort();
 			}
-			if (gltf.textures[gltf.materials[i].pbrData.baseColorTexture.value().textureIndex].samplerIndex.has_value()) {
-				sam = gltf.textures[gltf.materials[i].pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
+			if (gltf.textures[texture_index].samplerIndex.has_value()) {
+				sam = gltf.textures[texture_index].samplerIndex.value();
 			}
 			else {
 				fmt::print("Texture has no sampler index\n");
 				abort();
 			}
-			data.textureIndex1 = img;
-			data.samplerIndex1 = sam;	
+			data.texture_image_indices.x   = img;
+			data.texture_sampler_indices.x = sam;
 		}
 		if (gltf.materials[i].pbrData.metallicRoughnessTexture.has_value()) {
 			size_t img = 0;
 			size_t sam = 0;
-			if (gltf.textures[gltf.materials[i].pbrData.metallicRoughnessTexture.value().textureIndex].imageIndex.has_value()) {
-				img = gltf.textures[gltf.materials[i].pbrData.metallicRoughnessTexture.value().textureIndex].imageIndex.value();
+			size_t texture_index = gltf.materials[i].pbrData.metallicRoughnessTexture.value().textureIndex;
+			if (gltf.textures[texture_index].imageIndex.has_value()) {
+				img = gltf.textures[texture_index].imageIndex.value();
 				//materialResources.colorImage = images[img];
 			}
 			else {
 				fmt::print("Metallic Texture has no image index\n");
 				abort();
 			}
-			if (gltf.textures[gltf.materials[i].pbrData.metallicRoughnessTexture.value().textureIndex].samplerIndex.has_value()) {
-				sam = gltf.textures[gltf.materials[i].pbrData.metallicRoughnessTexture.value().textureIndex].samplerIndex.value();
+			if (gltf.textures[texture_index].samplerIndex.has_value()) {
+				sam = gltf.textures[texture_index].samplerIndex.value();
 			}
 			else {
 				fmt::print("Metallic Texture has no sampler index\n");
 				abort();
 			}
-			data.textureIndex2 = img;
-			data.samplerIndex2 = sam;
+			data.texture_image_indices.y = img;
+			data.texture_sampler_indices.y = sam;
 		}
 
 		file.materials.push_back(data);
@@ -635,8 +637,8 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 						newvtx.position = v;
 						newvtx.normal = { 1, 0, 0 };
 						newvtx.color = glm::vec4{ 1.f };
-						newvtx.uv_x = 0;
-						newvtx.uv_y = 0;
+						newvtx.uv = glm::vec2(0, 0);
+						
 						vertices[initial_vtx + index] = newvtx;
 					});
 
@@ -667,8 +669,7 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 
 				fastgltf::iterateAccessorWithIndex<glm::vec2>(gltf, gltf.accessors[(*uv).second],
 					[&](glm::vec2 v, size_t index) {
-						vertices[initial_vtx + index].uv_x = v.x;
-						vertices[initial_vtx + index].uv_y = v.y;
+						vertices[initial_vtx + index].uv = v;
 					});
 			}
 

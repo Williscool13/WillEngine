@@ -34,18 +34,17 @@ struct Vertex {
 //  Vertex Data
 struct MultiDrawVertex {
 	glm::vec3 position;
-	float uv_x;
 	glm::vec3 normal;
-	float uv_y;
 	glm::vec4 color;
-	uint16_t materialIndex; // vertex is implicitly associated with a mesh, which is directly associated with a single material
+	glm::vec2 uv;
+	uint32_t materialIndex; // vertex is implicitly associated with a mesh, which is directly associated with a single material
 };
 
 struct MeshData {
 	std::vector<MultiDrawVertex> vertices;
 	std::vector<uint32_t> indices;
 	size_t vertex_buffer_offset = 0;
-	size_t index_buffer_offset = 0;
+	uint32_t index_buffer_offset = 0;
 };
 
 
@@ -58,11 +57,9 @@ struct InstanceData {
 struct MaterialData {
 	glm::vec4 color_factor;
 	glm::vec4 metal_rough_factors;
-	uint16_t textureIndex1;
-	uint16_t samplerIndex1;
-	uint16_t textureIndex2;
-	uint16_t samplerIndex2;
-	float alphaCutoff;
+	glm::vec4 texture_image_indices;
+	glm::vec4 texture_sampler_indices;
+	glm::vec4 alphaCutoff;
 };
 
 struct BoundindSphere {

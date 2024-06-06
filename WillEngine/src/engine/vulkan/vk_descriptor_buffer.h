@@ -2,6 +2,13 @@
 #include "vk_types.h"
 #include "will_engine.h"
 
+struct DescriptorImageData {
+	VkDescriptorType type;
+	VkDescriptorImageInfo* image_info;
+	size_t count;
+};
+
+
 class DescriptorBuffer {
 public:
 	DescriptorBuffer() = default;
@@ -65,7 +72,9 @@ public:
 	DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice
 		, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
 
-	int setup_data(VkDevice device, std::vector<std::pair<VkDescriptorType, VkDescriptorImageInfo>> data);
-	void set_data(VkDevice device, std::vector<std::pair<VkDescriptorType, VkDescriptorImageInfo>> data, int index);
+	int setup_data(VkDevice device, std::vector<DescriptorImageData> data);
+	void set_data(VkDevice device, std::vector<DescriptorImageData> data, int index);
 	VkDescriptorBufferBindingInfoEXT get_descriptor_buffer_binding_info(VkDevice device);
 };
+
+

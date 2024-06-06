@@ -13,11 +13,9 @@ struct Material
 {
 	vec4 color_factor;
 	vec4 metal_rough_factors;
-	uint texture_index1; // base color texture
-	uint texture_index2; // metallic roughness texture
-	uint sampler_index1; // base color sampler
-	uint sampler_index2; // metallic roughness sampler
-	float alpha_cutoff;
+	vec4 texture_image_indices;
+	vec4 texture_sampler_indices;
+	vec4 alpha_cutoff; // only use X, can pack with other values in future
 };
 
 struct Model

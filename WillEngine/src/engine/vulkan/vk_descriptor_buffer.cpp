@@ -100,7 +100,7 @@ DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice d
 	is_buffer_mapped = true;
 }
 
-int DescriptorBufferSampler::setup_data(VkDevice device, std::vector<std::pair<VkDescriptorType, VkDescriptorImageInfo>> data) {
+int DescriptorBufferSampler::setup_data(VkDevice device, std::vector<DescriptorImageData> data) {
 	if (free_indices.empty()) {
 		fmt::print("Ran out of space in DescriptorBufferUniform\n");
 		abort();
@@ -121,39 +121,30 @@ int DescriptorBufferSampler::setup_data(VkDevice device, std::vector<std::pair<V
 	for (int i = 0; i < data.size(); i++) {
 		// image_descriptor_info
 		VkDescriptorGetInfoEXT image_descriptor_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT };
-		image_descriptor_info.type = data[i].first;
-		switch (data[i].first) {
-		case VK_DESCRIPTOR_TYPE_SAMPLER:
-			image_descriptor_info.data.pSampler = &data[i].second.sampler;
-			break;
-		case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-			image_descriptor_info.data.pCombinedImageSampler = &data[i].second;
-			break;
-		case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-			image_descriptor_info.data.pSampledImage = &data[i].second;
-			break;
-		case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-			image_descriptor_info.data.pStorageImage = &data[i].second;
-			break;
-		default:
-			fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
-			return -1;
-		}
-
-		// descriptor_size
+		image_descriptor_info.type = data[i].type;
 		size_t descriptor_size{};
-		switch (data[i].first) {
+		
+
+		switch (data[i].type) {
 		case VK_DESCRIPTOR_TYPE_SAMPLER:
-			descriptor_size = descriptor_buffer_properties.samplerDescriptorSize;
+			VkSampler samplers[32]; //32 matches upper limit of samplerCount
+			DescriptorImageData d = data[i];
+			if (d.count > 32) { fmt::print("Sampler count exceeds 32\n"); return -1; }
+			for (int j = 0; j < d.count; j++) { samplers[j] = d.image_info[j].sampler; }
+			image_descriptor_info.data.pSampler = samplers;
+			descriptor_size = descriptor_buffer_properties.samplerDescriptorSize * d.count; 
 			break;
 		case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-			descriptor_size = descriptor_buffer_properties.combinedImageSamplerDescriptorSize;
+			image_descriptor_info.data.pCombinedImageSampler = data[i].image_info;
+			descriptor_size = descriptor_buffer_properties.combinedImageSamplerDescriptorSize * data[i].count;
 			break;
 		case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-			descriptor_size = descriptor_buffer_properties.sampledImageDescriptorSize;
+			image_descriptor_info.data.pSampledImage = data[i].image_info;
+			descriptor_size = descriptor_buffer_properties.sampledImageDescriptorSize * data[i].count;
 			break;
 		case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-			descriptor_size = descriptor_buffer_properties.storageImageDescriptorSize;
+			image_descriptor_info.data.pStorageImage = data[i].image_info;
+			descriptor_size = descriptor_buffer_properties.storageImageDescriptorSize * data[i].count;
 			break;
 		default:
 			fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
@@ -176,51 +167,41 @@ int DescriptorBufferSampler::setup_data(VkDevice device, std::vector<std::pair<V
 
 }
 
-void DescriptorBufferSampler::set_data(VkDevice device, std::vector<std::pair<VkDescriptorType, VkDescriptorImageInfo>> data, int index) {
+void DescriptorBufferSampler::set_data(VkDevice device, std::vector<DescriptorImageData> data, int index) {
 	uint64_t accum_offset{ descriptor_buffer_offset };
 
 	for (int i = 0; i < data.size(); i++) {
 		// image_descriptor_info
 		VkDescriptorGetInfoEXT image_descriptor_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT };
-		image_descriptor_info.type = data[i].first;
-		switch (data[i].first) {
-		case VK_DESCRIPTOR_TYPE_SAMPLER:
-			image_descriptor_info.data.pSampler = &data[i].second.sampler;
-			break;
-		case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-			image_descriptor_info.data.pCombinedImageSampler = &data[i].second;
-			break;
-		case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-			image_descriptor_info.data.pSampledImage = &data[i].second;
-			break;
-		case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-			image_descriptor_info.data.pStorageImage = &data[i].second;
-			break;
-		default:
-			fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
-			return;
-		}
-
-		// descriptor_size
+		image_descriptor_info.type = data[i].type;
 		size_t descriptor_size{};
-		switch (data[i].first) {
+
+
+		switch (data[i].type) {
 		case VK_DESCRIPTOR_TYPE_SAMPLER:
-			descriptor_size = descriptor_buffer_properties.samplerDescriptorSize;
+			VkSampler samplers[32]; //32 matches upper limit of samplerCount
+			DescriptorImageData d = data[i];
+			if (d.count > 32) { fmt::print("Sampler count exceeds 32\n"); return; }
+			for (int j = 0; j < d.count; j++) { samplers[j] = d.image_info[j].sampler; }
+			image_descriptor_info.data.pSampler = samplers;
+			descriptor_size = descriptor_buffer_properties.samplerDescriptorSize * d.count;
 			break;
 		case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-			descriptor_size = descriptor_buffer_properties.combinedImageSamplerDescriptorSize;
+			image_descriptor_info.data.pCombinedImageSampler = data[i].image_info;
+			descriptor_size = descriptor_buffer_properties.combinedImageSamplerDescriptorSize * data[i].count;
 			break;
 		case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-			descriptor_size = descriptor_buffer_properties.sampledImageDescriptorSize;
+			image_descriptor_info.data.pSampledImage = data[i].image_info;
+			descriptor_size = descriptor_buffer_properties.sampledImageDescriptorSize * data[i].count;
 			break;
 		case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-			descriptor_size = descriptor_buffer_properties.storageImageDescriptorSize;
+			image_descriptor_info.data.pStorageImage = data[i].image_info;
+			descriptor_size = descriptor_buffer_properties.storageImageDescriptorSize * data[i].count;
 			break;
 		default:
 			fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
 			return;
 		}
-
 
 		// pointer to start point
 		char* buffer_ptr_offset = (char*)buffer_ptr + accum_offset + index * descriptor_buffer_size;

@@ -11,7 +11,8 @@ layout (location = 0) out vec4 outFragColor;
 
 void main() 
 {
-	vec4 _col = texture(sampler2D(colorI, colorS), inUV);
+	//vec4 _col = texture(sampler2D(colorI, colorS), inUV);
+	vec4 _col = texture(sampler2D(textures[0], samplers[0]), inUV);
 	_col *= materialData.colorFactors;
 
 	if (_col.w < alphaCutoff) {
@@ -26,5 +27,6 @@ void main()
 	vec3 ambient = color *  sceneData.ambientColor.xyz;
 
 
-	outFragColor = vec4(color * lightValue *  sceneData.sunlightColor.w + ambient , _col.w);
+	//outFragColor = vec4(color * lightValue *  sceneData.sunlightColor.w + ambient , _col.w);
+	outFragColor = vec4(materialData.colorFactors);
 } 
