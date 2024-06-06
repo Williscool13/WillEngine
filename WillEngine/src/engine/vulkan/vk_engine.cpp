@@ -69,7 +69,7 @@ void VulkanEngine::init()
 	//std::string structurePath = { "assets\\models\\primitives\\primitives.gltf" };   
 	//std::string structurePath = { "assets\\models\\AlphaBlendModeTest\\glTF-Binary\\AlphaBlendModeTest.glb" };
 	auto test = loadGltfMultiDraw(this, structurePath);
-	testMultiDraw.build_buffers(this, *test.value().get());
+	MultiDrawPipeline.build_buffers(this, *test.value().get());
 	loadedMultiDrawScenes["structure"] = *test;
 
 	mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
@@ -488,8 +488,8 @@ void VulkanEngine::update_scene()
 	multiDrawSceneData.ambientColor = glm::vec4(.1f);
 	multiDrawSceneData.sunlightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.f);
 	multiDrawSceneData.sunlightDirection = glm::vec4(0, 1, 0.5, 1.f);
-	multiDrawSceneData.model_count = static_cast<uint32_t>(testMultiDraw.number_of_instances);
-	GPUSceneDataMultiDraw* multiDrawSceneUniformData = (GPUSceneDataMultiDraw*)testMultiDraw.sceneDataBuffer.allocation->GetMappedData();
+	multiDrawSceneData.model_count = static_cast<uint32_t>(MultiDrawPipeline.number_of_instances);
+	GPUSceneDataMultiDraw* multiDrawSceneUniformData = (GPUSceneDataMultiDraw*)MultiDrawPipeline.sceneDataBuffer.allocation->GetMappedData();
 	memcpy(multiDrawSceneUniformData, &multiDrawSceneData, sizeof(GPUSceneDataMultiDraw));
 
 
@@ -503,10 +503,10 @@ void VulkanEngine::init_pipelines()
 {
 	init_compute_pipelines();
 	init_fullscreen_pipeline();
-	testMultiDraw.build_pipelines(this);
+	MultiDrawPipeline.build_pipelines(this);
 
 	_mainDeletionQueue.push_function([&]() {
-		testMultiDraw.destroy(_device, _allocator);
+		MultiDrawPipeline.destroy(_device, _allocator);
 		});
 }
 
@@ -892,47 +892,45 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
 	vkCmdBeginRendering(cmd, &renderInfo);
 
-	testMultiDraw.shaderObject->bind_viewport(cmd, static_cast<float>(_drawExtent.width), static_cast<float>(_drawExtent.height), 0.0f, 1.0f);
-	testMultiDraw.shaderObject->bind_scissor(cmd, 0, 0, _drawExtent.width, _drawExtent.height);
-	testMultiDraw.shaderObject->bind_input_assembly(cmd);
-	testMultiDraw.shaderObject->bind_rasterization(cmd);
-	testMultiDraw.shaderObject->bind_stencil(cmd);
-	testMultiDraw.shaderObject->bind_multisampling(cmd);
-	testMultiDraw.shaderObject->bind_shaders(cmd);
-	testMultiDraw.shaderObject->bind_rasterizaer_discard(cmd, VK_FALSE);
+	MultiDrawPipeline.shaderObject->bind_viewport(cmd, static_cast<float>(_drawExtent.width), static_cast<float>(_drawExtent.height), 0.0f, 1.0f);
+	MultiDrawPipeline.shaderObject->bind_scissor(cmd, 0, 0, _drawExtent.width, _drawExtent.height);
+	MultiDrawPipeline.shaderObject->bind_input_assembly(cmd);
+	MultiDrawPipeline.shaderObject->bind_rasterization(cmd);
+	MultiDrawPipeline.shaderObject->bind_stencil(cmd);
+	MultiDrawPipeline.shaderObject->bind_multisampling(cmd);
+	MultiDrawPipeline.shaderObject->bind_shaders(cmd);
+	MultiDrawPipeline.shaderObject->bind_rasterizaer_discard(cmd, VK_FALSE);
 
 
 
 	VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[3]{};
-	descriptor_buffer_binding_info[0] = testMultiDraw.buffer_addresses.get_descriptor_buffer_binding_info(_device);;
-	descriptor_buffer_binding_info[1] = testMultiDraw.scene_data.get_descriptor_buffer_binding_info(_device);
-	descriptor_buffer_binding_info[2] = testMultiDraw.texture_data.get_descriptor_buffer_binding_info(_device);
+	descriptor_buffer_binding_info[0] = MultiDrawPipeline.buffer_addresses.get_descriptor_buffer_binding_info(_device);;
+	descriptor_buffer_binding_info[1] = MultiDrawPipeline.scene_data.get_descriptor_buffer_binding_info(_device);
+	descriptor_buffer_binding_info[2] = MultiDrawPipeline.texture_data.get_descriptor_buffer_binding_info(_device);
 	vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptor_buffer_binding_info);
 
 	constexpr uint32_t buffer_addresses = 0;
 	constexpr uint32_t scene_data = 1;
 	constexpr uint32_t texture_data = 2;
 	VkDeviceSize offsets = 0;
-	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, testMultiDraw.layout, 0, 1, &buffer_addresses, &offsets);
-	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, testMultiDraw.layout, 1, 1, &scene_data, &offsets);
-	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, testMultiDraw.layout, 2, 1, &texture_data, &offsets);
+	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, MultiDrawPipeline.layout, 0, 1, &buffer_addresses, &offsets);
+	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, MultiDrawPipeline.layout, 1, 1, &scene_data, &offsets);
+	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, MultiDrawPipeline.layout, 2, 1, &texture_data, &offsets);
 
-	VkDeviceSize _offsets[1] = { 0 };
-	vkCmdBindIndexBuffer(cmd, testMultiDraw.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdBindVertexBuffers(cmd, 0, 1, &testMultiDraw.vertexBuffer.buffer, _offsets);
+	vkCmdBindIndexBuffer(cmd, MultiDrawPipeline.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
 	// Opaque Rendering
-	testMultiDraw.shaderObject->enable_depthtesting(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-	testMultiDraw.shaderObject->init_blending(ShaderObject::BlendMode::NO_BLEND);
-	testMultiDraw.shaderObject->bind_depth_test(cmd);
-	testMultiDraw.shaderObject->bind_blending(cmd);
-	vkCmdDrawIndexedIndirect(cmd, testMultiDraw.opaqueDrawBuffers.indirectDrawBuffer.buffer, 0, testMultiDraw.opaqueDrawBuffers.instanceCount, sizeof(VkDrawIndexedIndirectCommand));
+	MultiDrawPipeline.shaderObject->enable_depthtesting(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+	MultiDrawPipeline.shaderObject->init_blending(ShaderObject::BlendMode::NO_BLEND);
+	MultiDrawPipeline.shaderObject->bind_depth_test(cmd);
+	MultiDrawPipeline.shaderObject->bind_blending(cmd);
+	vkCmdDrawIndexedIndirect(cmd, MultiDrawPipeline.opaqueDrawBuffers.indirectDrawBuffer.buffer, 0, MultiDrawPipeline.opaqueDrawBuffers.instanceCount, sizeof(VkDrawIndexedIndirectCommand));
 	// Transparent Rendering
-	testMultiDraw.shaderObject->enable_depthtesting(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
-	testMultiDraw.shaderObject->init_blending(ShaderObject::BlendMode::ADDITIVE_BLEND);
-	testMultiDraw.shaderObject->bind_depth_test(cmd);
-	testMultiDraw.shaderObject->bind_blending(cmd);
-	vkCmdDrawIndexedIndirect(cmd, testMultiDraw.transparentDrawBuffers.indirectDrawBuffer.buffer, 0, testMultiDraw.transparentDrawBuffers.instanceCount, sizeof(VkDrawIndexedIndirectCommand));
+	MultiDrawPipeline.shaderObject->enable_depthtesting(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+	MultiDrawPipeline.shaderObject->init_blending(ShaderObject::BlendMode::ADDITIVE_BLEND);
+	MultiDrawPipeline.shaderObject->bind_depth_test(cmd);
+	MultiDrawPipeline.shaderObject->bind_blending(cmd);
+	vkCmdDrawIndexedIndirect(cmd, MultiDrawPipeline.transparentDrawBuffers.indirectDrawBuffer.buffer, 0, MultiDrawPipeline.transparentDrawBuffers.instanceCount, sizeof(VkDrawIndexedIndirectCommand));
 
 	vkCmdEndRendering(cmd);
 
@@ -1412,47 +1410,6 @@ void GLTFMetallic_RoughnessMultiDraw::build_pipelines(VulkanEngine* engine)
 
 
 	shaderObject->init(engine->_device);
-	shaderObject->init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-	{
-		VkVertexInputBindingDescription2EXT vertex_description{};
-		vertex_description.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
-		vertex_description.binding = 0;
-		vertex_description.pNext = nullptr;
-		vertex_description.stride = sizeof(MultiDrawVertex);
-		vertex_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		vertex_description.divisor = 1;
-
-		std::vector<VkVertexInputAttributeDescription2EXT> attribute_descriptions{};
-		attribute_descriptions.resize(5);
-		attribute_descriptions[0].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-		attribute_descriptions[0].binding = 0;
-		attribute_descriptions[0].location = 0;
-		attribute_descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attribute_descriptions[0].offset = offsetof(MultiDrawVertex, position);
-		attribute_descriptions[1].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-		attribute_descriptions[1].binding = 0;
-		attribute_descriptions[1].location = 1;
-		attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attribute_descriptions[1].offset = offsetof(MultiDrawVertex, normal);
-		attribute_descriptions[2].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-		attribute_descriptions[2].binding = 0;
-		attribute_descriptions[2].location = 2;
-		attribute_descriptions[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		attribute_descriptions[2].offset = offsetof(MultiDrawVertex, color);
-		attribute_descriptions[3].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-		attribute_descriptions[3].binding = 0;
-		attribute_descriptions[3].location = 3;
-		attribute_descriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
-		attribute_descriptions[3].offset = offsetof(MultiDrawVertex, uv);
-		attribute_descriptions[4].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-		attribute_descriptions[4].binding = 0;
-		attribute_descriptions[4].location = 4;
-		attribute_descriptions[4].format = VK_FORMAT_R32_UINT;
-		attribute_descriptions[4].offset = offsetof(MultiDrawVertex, materialIndex);
-		shaderObject->init_vertex_input(vertex_description, attribute_descriptions);
-
-
-	}
 	shaderObject->init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
 	if (USE_MSAA) {
 		shaderObject->enable_msaa(MSAA_SAMPLES);

@@ -25,10 +25,13 @@ struct AllocatedBuffer {
 //  Vertex Data
 struct MultiDrawVertex {
 	glm::vec3 position;
+	float pad;
 	glm::vec3 normal;
+	float pad2;
 	glm::vec4 color;
 	glm::vec2 uv;
 	uint32_t materialIndex; // vertex is implicitly associated with a mesh, which is directly associated with a single material
+	float pad3;
 };
 
 // Raw Mesh Data

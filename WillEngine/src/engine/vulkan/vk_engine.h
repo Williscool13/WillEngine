@@ -241,7 +241,7 @@ public:
 	void destroy_image(const AllocatedImage& img);
 
 	// Material Pipeline
-	GLTFMetallic_RoughnessMultiDraw testMultiDraw;
+	GLTFMetallic_RoughnessMultiDraw MultiDrawPipeline;
 
 
 	GPUSceneData sceneData;

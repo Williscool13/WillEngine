@@ -1,11 +1,15 @@
 struct Vertex
 {
 	vec3 position;
-	float uv_x;
+	//float uv_x;
+	float pad;
 	vec3 normal;
-	float uv_y;
+	//float uv_y;
+	float pad2;
 	vec4 color;
-	vec4 material_index; // only use X, can pack with other values in future	
+	vec2 uv;
+	uint material_index; // only use X, can pack with other values in future
+	float pad3;
 };
 
 struct Material
