@@ -11,85 +11,23 @@
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 
-
-struct GLTFMaterial {
-	MaterialInstance data;
-};
-
-struct GeoSurface {
-	uint32_t startIndex;
-	uint32_t count;
-	std::shared_ptr<GLTFMaterial> material;
-};
-
-
-struct MeshAsset {
-    std::string name;
-
-    std::vector<GeoSurface> surfaces;
-    GPUMeshBuffers meshBuffers;
-};
-
-
-
 class VulkanEngine;
 
-
-struct LoadedGLTF : public IRenderable {
-    // storage for all the data on a given glTF file
-    std::unordered_map<std::string, std::shared_ptr<MeshAsset>> meshes;
-    std::unordered_map<std::string, std::shared_ptr<Node>> nodes;
-    std::unordered_map<std::string, AllocatedImage> images;
-    std::unordered_map<std::string, std::shared_ptr<GLTFMaterial>> materials;
-    // nodes that dont have a parent, for iterating through the file in tree order
-    std::vector<std::shared_ptr<Node>> topNodes;
-    std::vector<VkSampler> samplers;
-    VulkanEngine* creator;
-
-    ~LoadedGLTF() { clearAll(); };
-
-    virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx);
-
-private:
-
-    void clearAll();
-};
-
-struct MultiDrawData {
-    uint32_t firstIndex;
-    uint32_t indexCount;
-    uint32_t vertexOffset;
-    uint32_t instanceId;
-};
-struct PrimitiveData {
-    std::vector<MultiDrawVertex> vertices;
-    std::vector<uint32_t> indices;
-    bool hasTransparent = false;
-};
-
 struct LoadedGLTFMultiDraw {
-
+    VulkanEngine* creator;
     // cosntruct buffers from these
     std::vector<AllocatedImage> images;
     std::vector<VkSampler> samplers;
-    std::vector<MaterialData> materials;
+    std::vector<MaterialData> materials; // materials use images/samplers
 
-    std::vector<PrimitiveData> primitives;
+    std::vector<RawMeshData> meshes; // vertices use materials
     std::vector<std::shared_ptr<Node>> nodes;
     std::vector<std::shared_ptr<Node>> topNodes;
 
-    VulkanEngine* creator;
-
     ~LoadedGLTFMultiDraw() { clearAll(); };
-
-
 private:
-
     void clearAll();
-
 };
 
-
-std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::string_view filePath);
 
 std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngine* engine, std::string_view filePath);

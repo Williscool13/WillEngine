@@ -108,7 +108,6 @@ int DescriptorBufferSampler::setup_data(VkDevice device, std::vector<DescriptorI
 	}
 
 	int index = free_indices.top();
-	fmt::print("Sampler allocated at index {}\n", index);
 	free_indices.pop();
 
 	uint64_t accum_offset{ descriptor_buffer_offset };
@@ -135,7 +134,6 @@ int DescriptorBufferSampler::setup_data(VkDevice device, std::vector<DescriptorI
 					descriptor_size = descriptor_buffer_properties.storageImageDescriptorSize; break;
 				}
 				accum_offset += descriptor_size;
-				fmt::print("added padding to descriptor buffer\n");
 				continue;
 			}
 

@@ -17,8 +17,8 @@
 constexpr unsigned int FRAME_OVERLAP = 2;
 
 struct MeshAsset;
-struct LoadedGLTF;
 struct LoadedGLTFMultiDraw;
+class VulkanEngine;
 
 struct DeletionQueue
 {
@@ -81,100 +81,6 @@ struct EngineStats {
 	RollingAverage mesh_draw_time{ 500 };
 };
 
-struct MeshNode : public Node {
-
-	std::shared_ptr<MeshAsset> mesh;
-
-	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override;
-};
-
-struct MeshNodeMultiDraw : public Node {
-	
-	uint32_t meshIndex;
-	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override;
-};
-
-struct RenderObject {
-	uint32_t indexCount;
-	uint32_t firstIndex;
-	VkBuffer indexBuffer;
-
-	MaterialInstance* material;
-
-	glm::mat4 transform;
-	VkDeviceAddress vertexBufferAddress;
-};
-
-struct DrawContext {
-	std::vector<RenderObject> OpaqueSurfaces;
-	std::vector<RenderObject> TransparentSurfaces;
-};
-
-class VulkanEngine;
-
-struct GLTFMetallic_Roughness {
-	MaterialPipeline opaquePipeline;
-	MaterialPipeline transparentPipeline;	
-	VkPipelineLayout pipelineLayout;
-
-	VkDescriptorSetLayout materialTextureLayout;
-	VkDescriptorSetLayout materialUniformLayout;
-	DescriptorBufferSampler materialTextureDescriptorBuffer;
-	DescriptorBufferUniform materialUniformDescriptorBuffer;
-
-	struct MaterialConstants {
-		glm::vec4 colorFactors;
-		glm::vec4 metal_rough_factors;
-		//padding, we need it anyway for uniform buffers
-		glm::vec4 extra[14];
-	};
-
-	struct MaterialResources {
-		AllocatedImage colorImage;
-		VkSampler colorSampler;
-		AllocatedImage metalRoughImage;
-		VkSampler metalRoughSampler;
-		AllocatedBuffer dataBuffer;
-		uint32_t dataBufferSize;
-		float alphaCutoff;
-	};
-
-	//DescriptorWriter writer;
-	
-
-
-	void build_pipelines(VulkanEngine* engine);
-
-	
-
-	MaterialInstance write_material(
-		VkDevice device
-		, MaterialPass pass
-		, const MaterialResources& resources
-	);
-
-	void destroy(VkDevice device, VmaAllocator allocator);
-};
-
-
-
-struct GPUSceneDataMultiDraw {
-	glm::mat4 view;
-	glm::mat4 proj;
-	glm::mat4 viewproj;
-	glm::vec4 ambientColor;
-	glm::vec4 sunlightDirection; // w for sun power
-	glm::vec4 sunlightColor;
-	uint32_t model_count;
-};
-
-struct MultiDrawBuffers {
-	//DescriptorBufferUniform indirect_draw_buffer_address;
-	//AllocatedBuffer indirect_draw_buffer_underlying;
-	AllocatedBuffer indirectDrawBuffer;
-	size_t instanceCount;
-};
-
 struct GLTFMetallic_RoughnessMultiDraw {
 	VulkanEngine* engine;
 
@@ -230,31 +136,6 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	bool buffersBuilt{ false };
 	void destroy(VkDevice device, VmaAllocator allocator);
 };
-
-
-
-//struct MultiDrawIndirect {
-//	std::vector<SceneModel> models;
-//
-//	AllocatedBuffer combinedVertexBuffer;
-//	AllocatedBuffer combinedIndexBuffer;
-//	// to calculate culling
-//	AllocatedBuffer modelInformationBuffer;
-//
-//	// actual buffer on the GPU
-//	AllocatedBuffer indirectDrawBuffer;
-//	AllocatedBuffer indirectDrawBufferAddress;
-//
-//
-//	void initialize_buffers(VkCommandBuffer immediateCommandBuffer, VkFence& immediateFence, VkQueue grapgicsQueue, VkDevice device, VmaAllocator allocator);
-//
-//	AllocatedBuffer create_buffer(VmaAllocator allocator, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-//	AllocatedBuffer create_staging_buffer(VmaAllocator allocator, VkDeviceSize allocSize);
-//
-//	VkDeviceAddress get_address(VkDevice device, VkBuffer buffer);
-//};
-
-
 
 class VulkanEngine {
 public:
@@ -337,7 +218,6 @@ public:
 	AllocatedBuffer create_staging_buffer(size_t allocSize);
 	void copy_buffer(AllocatedBuffer src, AllocatedBuffer dst, VkDeviceSize size);
 	VkDeviceAddress get_buffer_address(AllocatedBuffer buffer);
-	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 
 	void destroy_buffer(const AllocatedBuffer& buffer);
 
@@ -361,10 +241,6 @@ public:
 	void destroy_image(const AllocatedImage& img);
 
 	// Material Pipeline
-	MaterialInstance defaultOpaqueMaterial;
-	GLTFMetallic_Roughness metallicRoughnessPipelines;
-	DrawContext mainDrawContext;
-
 	GLTFMetallic_RoughnessMultiDraw testMultiDraw;
 
 
@@ -373,7 +249,6 @@ public:
 	DescriptorBufferUniform gpuSceneDataDescriptorBuffer;
 	AllocatedBuffer gpuSceneDataBuffer;
 	float globalModelScale{ 1.0f };
-	std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
 	std::unordered_map<std::string, std::shared_ptr<LoadedGLTFMultiDraw>> loadedMultiDrawScenes;
 	void update_scene();
 

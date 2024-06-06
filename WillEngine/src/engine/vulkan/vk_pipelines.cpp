@@ -315,7 +315,7 @@ void ShaderObject::bind_input_assembly(VkCommandBuffer cmd)
 	vkCmdSetPrimitiveRestartEnable(cmd, VK_FALSE);
 	// unused, using buffer device address instead
 	if (_vertexInputEnabled) {
-		vkCmdSetVertexInputEXT(cmd, 1, &_vertex_description, _attribute_descriptions.size(), _attribute_descriptions.data());
+		vkCmdSetVertexInputEXT(cmd, 1, &_vertex_description, static_cast<uint32_t>(_attribute_descriptions.size()), _attribute_descriptions.data());
 	}
 	else {
 		vkCmdSetVertexInputEXT(cmd, 0, nullptr, 0, nullptr);

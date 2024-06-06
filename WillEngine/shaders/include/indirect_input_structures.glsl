@@ -5,8 +5,7 @@ struct Vertex
 	vec3 normal;
 	float uv_y;
 	vec4 color;
-	uint material_index;
-	
+	vec4 material_index; // only use X, can pack with other values in future	
 };
 
 struct Material

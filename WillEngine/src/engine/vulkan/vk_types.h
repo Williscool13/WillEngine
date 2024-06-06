@@ -22,15 +22,6 @@ struct AllocatedBuffer {
 	VmaAllocationInfo info;
 };
 
-struct Vertex {
-
-	glm::vec3 position;
-	float uv_x;
-	glm::vec3 normal;
-	float uv_y;
-	glm::vec4 color;
-};
-
 //  Vertex Data
 struct MultiDrawVertex {
 	glm::vec3 position;
@@ -40,22 +31,28 @@ struct MultiDrawVertex {
 	uint32_t materialIndex; // vertex is implicitly associated with a mesh, which is directly associated with a single material
 };
 
+// Raw Mesh Data
+struct RawMeshData {
+	std::vector<MultiDrawVertex> vertices;
+	std::vector<uint32_t> indices;
+	bool hasTransparent = false;
+};
+
+// Processed Mesh Data
 struct MeshData {
 	std::vector<MultiDrawVertex> vertices;
 	std::vector<uint32_t> indices;
 	size_t vertex_buffer_offset = 0;
 	uint32_t index_buffer_offset = 0;
-	bool transparent = false;
-
+	bool transparent = false; // true if any primitive in the mesh is transparent
 };
 
-
-
+// Per mesh instance data
 struct InstanceData {
 	glm::mat4x4 modelMatrix; // will be accessed in shader through appropriate gl_instanceID
 };
 
-
+// Per material data
 struct MaterialData {
 	glm::vec4 color_factor;
 	glm::vec4 metal_rough_factors;
@@ -64,7 +61,7 @@ struct MaterialData {
 	glm::vec4 alphaCutoff; // x: alpha cutoff, y: alpha mode, z: padding, w: padding
 };
 
-struct BoundindSphere {
+struct BoundingSphere {
 	float x;
 	float y;
 	float z;
@@ -72,22 +69,22 @@ struct BoundindSphere {
 };
 
 
-// holds the resources needed for a mesh
-struct GPUMeshBuffers {
-
-	AllocatedBuffer indexBuffer;
-	AllocatedBuffer vertexBuffer;
-	VkDeviceAddress vertexBufferAddress;
+struct GPUSceneDataMultiDraw {
+	glm::mat4 view;
+	glm::mat4 proj;
+	glm::mat4 viewproj;
+	glm::vec4 ambientColor;
+	glm::vec4 sunlightDirection; // w for sun power
+	glm::vec4 sunlightColor;
+	uint32_t model_count;
 };
 
-// push constants for our mesh object draws
-struct GPUDrawPushConstants {
-	glm::mat4 modelMatrix;
-	glm::mat3x4 invTransposeModelMatrix; // hard coded to 3x4 to match GLSL std140 layout
-	VkDeviceAddress vertexBuffer;
-	float alphaCutoff;
-}; 
-
+struct MultiDrawBuffers {
+	//DescriptorBufferUniform indirect_draw_buffer_address;
+	//AllocatedBuffer indirect_draw_buffer_underlying;
+	AllocatedBuffer indirectDrawBuffer;
+	uint32_t instanceCount;
+};
 
 // Material Structure
 enum class MaterialPass :uint8_t {
@@ -95,37 +92,10 @@ enum class MaterialPass :uint8_t {
 	Transparent = 2,
 	Other = 3,
 };
-struct MaterialPipeline {
-	//VkPipeline pipeline;
-	std::shared_ptr<ShaderObject> shaderObject;
-	VkPipelineLayout layout;
-	DescriptorBufferSampler* materialTextureDescriptorBuffer;
-	DescriptorBufferUniform* materialUniformDescriptorBuffer;
-	VkDescriptorSetLayout materialTextureLayout;
-	VkDescriptorSetLayout materialUniformLayout;
-};
 
-struct MaterialInstance {
-	MaterialPipeline* pipeline;
-	// descriptor properties
-	VkDescriptorImageInfo colorDescriptorImageInfo;
-	VkDescriptorImageInfo metalRoughDescriptorImageInfo;
-	AllocatedBuffer materialUniformBuffer; // underlying buffer for the uniform descriptor
-
-	int textureDescriptorBufferIndex;
-	int uniformDescriptorBufferIndex;
-	MaterialPass passType;
-	float alphaCutoff;
-};
-
-
-struct DrawContext;
 
 // base class for a renderable dynamic object
-class IRenderable {
-
-	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) = 0;
-};
+class IRenderable { };
 
 // implementation of a drawable scene node.
 // the scene node can hold children and will also keep a transform to propagate
@@ -142,18 +112,18 @@ struct Node : public IRenderable {
 	void refreshTransform(const glm::mat4& parentMatrix)
 	{
 		worldTransform = parentMatrix * localTransform;
-		for (auto c : children) {
+		for (auto& c : children) {
 			c->refreshTransform(worldTransform);
 		}
 	}
 
-	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx)
-	{
-		// draw children
-		for (auto& c : children) {
-			c->Draw(topMatrix, ctx);
-		}
-	}
+	virtual ~Node() = default;
+};
+
+struct MeshNodeMultiDraw : public Node {
+	uint32_t meshIndex;
+	int instanceIndex{ };
+
 };
 
 
