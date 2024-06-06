@@ -29,6 +29,7 @@ public:
 
     void init(VkDevice device);
     void init_input_assembly(VkPrimitiveTopology topology);
+    void init_vertex_input(VkVertexInputBindingDescription2EXT vertex_description, std::vector<VkVertexInputAttributeDescription2EXT> attribute_descriptions);
     void init_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace);
     void init_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
 							, float minSampleShading, const VkSampleMask* pSampleMask
@@ -66,6 +67,9 @@ public:
 private:
     // input assembly
     VkPrimitiveTopology _topology;
+    bool _vertexInputEnabled = false;
+    VkVertexInputBindingDescription2EXT _vertex_description;
+    std::vector<VkVertexInputAttributeDescription2EXT> _attribute_descriptions;
     // rasterization
     VkPolygonMode _polygonMode;
     VkCullModeFlags _cullMode;

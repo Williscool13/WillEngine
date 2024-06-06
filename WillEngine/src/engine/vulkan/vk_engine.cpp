@@ -1043,51 +1043,11 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	testMultiDraw.shaderObject->bind_scissor(cmd, 0, 0, _drawExtent.width, _drawExtent.height);
 	testMultiDraw.shaderObject->bind_input_assembly(cmd);
 	testMultiDraw.shaderObject->bind_rasterization(cmd);
-	testMultiDraw.shaderObject->bind_depth_test(cmd);
 	testMultiDraw.shaderObject->bind_stencil(cmd);
 	testMultiDraw.shaderObject->bind_multisampling(cmd);
-	testMultiDraw.shaderObject->bind_blending(cmd);
 	testMultiDraw.shaderObject->bind_shaders(cmd);
 	testMultiDraw.shaderObject->bind_rasterizaer_discard(cmd, VK_FALSE);
 
-	VkVertexInputBindingDescription2EXT vertex_description;
-	vertex_description.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
-	vertex_description.binding = 0;
-	vertex_description.pNext = nullptr;
-	vertex_description.stride = sizeof(MultiDrawVertex);
-	vertex_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-	vertex_description.divisor = 1;
-
-	VkVertexInputAttributeDescription2EXT attribute_descriptions[5];
-	attribute_descriptions[0].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-	attribute_descriptions[0].binding = 0;
-	attribute_descriptions[0].location = 0;
-	attribute_descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attribute_descriptions[0].offset = offsetof(MultiDrawVertex, position);
-	attribute_descriptions[1].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-	attribute_descriptions[1].binding = 0;
-	attribute_descriptions[1].location = 1;
-	attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attribute_descriptions[1].offset = offsetof(MultiDrawVertex, normal);
-	attribute_descriptions[2].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-	attribute_descriptions[2].binding = 0;
-	attribute_descriptions[2].location = 2;
-	attribute_descriptions[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	attribute_descriptions[2].offset = offsetof(MultiDrawVertex, color);
-	attribute_descriptions[3].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-	attribute_descriptions[3].binding = 0;
-	attribute_descriptions[3].location = 3;
-	attribute_descriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
-	attribute_descriptions[3].offset = offsetof(MultiDrawVertex, uv);
-	attribute_descriptions[4].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-	attribute_descriptions[4].binding = 0;
-	attribute_descriptions[4].location = 4;
-	attribute_descriptions[4].format = VK_FORMAT_R32_UINT;
-	attribute_descriptions[4].offset = offsetof(MultiDrawVertex, materialIndex);
-
-
-	PFN_vkCmdSetVertexInputEXT vkCmdSetVertexInputEXT = reinterpret_cast<PFN_vkCmdSetVertexInputEXT>(vkGetDeviceProcAddr(_device, "vkCmdSetVertexInputEXT"));
-	vkCmdSetVertexInputEXT(cmd, 1, &vertex_description, 5, attribute_descriptions);
 
 
 	VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[3]{};
@@ -1104,11 +1064,22 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, testMultiDraw.layout, 1, 1, &scene_data, &offsets);
 	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, testMultiDraw.layout, 2, 1, &texture_data, &offsets);
 
-	// specifying offset in the VkDrawIndexedIndirectCommand has no effect if im getting vertices from a BDA! FIX IT!
 	VkDeviceSize _offsets[1] = { 0 };
 	vkCmdBindIndexBuffer(cmd, testMultiDraw.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdBindVertexBuffers(cmd, 0, 1, &testMultiDraw.vertexBuffer.buffer, _offsets);
-	vkCmdDrawIndexedIndirect(cmd, testMultiDraw.indirectDrawBuffer.buffer, 0, testMultiDraw.number_of_instances, sizeof(VkDrawIndexedIndirectCommand));
+
+	// Opaque Rendering
+	testMultiDraw.shaderObject->enable_depthtesting(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+	testMultiDraw.shaderObject->init_blending(ShaderObject::BlendMode::NO_BLEND);
+	testMultiDraw.shaderObject->bind_depth_test(cmd);
+	testMultiDraw.shaderObject->bind_blending(cmd);
+	vkCmdDrawIndexedIndirect(cmd, testMultiDraw.opaqueDrawBuffers.indirectDrawBuffer.buffer, 0, testMultiDraw.opaqueDrawBuffers.instanceCount, sizeof(VkDrawIndexedIndirectCommand));
+	// Transparent Rendering
+	testMultiDraw.shaderObject->enable_depthtesting(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+	testMultiDraw.shaderObject->init_blending(ShaderObject::BlendMode::ADDITIVE_BLEND);
+	testMultiDraw.shaderObject->bind_depth_test(cmd);
+	testMultiDraw.shaderObject->bind_blending(cmd);
+	vkCmdDrawIndexedIndirect(cmd, testMultiDraw.transparentDrawBuffers.indirectDrawBuffer.buffer, 0, testMultiDraw.transparentDrawBuffers.instanceCount, sizeof(VkDrawIndexedIndirectCommand));
 
 	vkCmdEndRendering(cmd);
 
@@ -1857,6 +1828,46 @@ void GLTFMetallic_RoughnessMultiDraw::build_pipelines(VulkanEngine* engine)
 
 	shaderObject->init(engine->_device);
 	shaderObject->init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	{
+		VkVertexInputBindingDescription2EXT vertex_description;
+		vertex_description.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
+		vertex_description.binding = 0;
+		vertex_description.pNext = nullptr;
+		vertex_description.stride = sizeof(MultiDrawVertex);
+		vertex_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		vertex_description.divisor = 1;
+
+		std::vector<VkVertexInputAttributeDescription2EXT> attribute_descriptions;
+		attribute_descriptions.resize(5);
+		attribute_descriptions[0].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+		attribute_descriptions[0].binding = 0;
+		attribute_descriptions[0].location = 0;
+		attribute_descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attribute_descriptions[0].offset = offsetof(MultiDrawVertex, position);
+		attribute_descriptions[1].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+		attribute_descriptions[1].binding = 0;
+		attribute_descriptions[1].location = 1;
+		attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attribute_descriptions[1].offset = offsetof(MultiDrawVertex, normal);
+		attribute_descriptions[2].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+		attribute_descriptions[2].binding = 0;
+		attribute_descriptions[2].location = 2;
+		attribute_descriptions[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		attribute_descriptions[2].offset = offsetof(MultiDrawVertex, color);
+		attribute_descriptions[3].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+		attribute_descriptions[3].binding = 0;
+		attribute_descriptions[3].location = 3;
+		attribute_descriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
+		attribute_descriptions[3].offset = offsetof(MultiDrawVertex, uv);
+		attribute_descriptions[4].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+		attribute_descriptions[4].binding = 0;
+		attribute_descriptions[4].location = 4;
+		attribute_descriptions[4].format = VK_FORMAT_R32_UINT;
+		attribute_descriptions[4].offset = offsetof(MultiDrawVertex, materialIndex);
+		shaderObject->init_vertex_input(vertex_description, attribute_descriptions);
+
+
+	}
 	shaderObject->init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
 	if (USE_MSAA) {
 		shaderObject->enable_msaa(MSAA_SAMPLES);
@@ -1943,32 +1954,64 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine, Loaded
 	auto           indirect_flags = default_indirect_flags;
 	indirect_flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
-	indirectDrawBuffer = engine->create_buffer(number_of_instances * sizeof(VkDrawIndexedIndirectCommand)
-		, indirect_flags, VMA_MEMORY_USAGE_GPU_ONLY);
-	// seed data
+	
+	// Opaque Draws
 	std::vector<VkDrawIndexedIndirectCommand> cpu_commands;
-	cpu_commands.resize(number_of_instances);
+	size_t opaqueInstanceCount = 0;
 	for (size_t i = 0; i < number_of_instances; ++i) {
+		MeshData& md = meshData[i];
+		if (md.transparent) { continue; }
+		opaqueInstanceCount++;
+
 		VkDrawIndexedIndirectCommand cmd{};
 		cmd.firstIndex = meshData[i].index_buffer_offset / (sizeof(meshData[i].indices[0]));
 		cmd.indexCount = static_cast<uint32_t>(meshData[i].indices.size());
 		cmd.vertexOffset = static_cast<int32_t>(meshData[i].vertex_buffer_offset / sizeof(MultiDrawVertex));
 		cmd.firstInstance = i;
 		cmd.instanceCount = 1;
-		cpu_commands[i] = cmd;
+		cpu_commands.push_back(cmd);
 	}
 
-	AllocatedBuffer staging_indirect = engine->create_staging_buffer(number_of_instances * sizeof(VkDrawIndexedIndirectCommand));
-	memcpy(staging_indirect.info.pMappedData, cpu_commands.data(), number_of_instances * sizeof(VkDrawIndexedIndirectCommand));
-	engine->copy_buffer(staging_indirect, indirectDrawBuffer, number_of_instances * sizeof(VkDrawIndexedIndirectCommand));
+	opaqueDrawBuffers.indirectDrawBuffer = engine->create_buffer(opaqueInstanceCount * sizeof(VkDrawIndexedIndirectCommand)
+		, indirect_flags, VMA_MEMORY_USAGE_GPU_ONLY);
+	opaqueDrawBuffers.instanceCount = opaqueInstanceCount;
+
+	AllocatedBuffer staging_indirect = engine->create_staging_buffer(opaqueInstanceCount * sizeof(VkDrawIndexedIndirectCommand));
+	memcpy(staging_indirect.info.pMappedData, cpu_commands.data(), opaqueInstanceCount * sizeof(VkDrawIndexedIndirectCommand));
+	engine->copy_buffer(staging_indirect, opaqueDrawBuffers.indirectDrawBuffer, opaqueInstanceCount * sizeof(VkDrawIndexedIndirectCommand));
+
+	// Transparent Draws
+	std::vector<VkDrawIndexedIndirectCommand> cpu_commands_transparent;
+	size_t transparentInstanceCount = 0;
+	for (size_t i = 0; i < number_of_instances; ++i) {
+		MeshData& md = meshData[i];
+		if (!md.transparent) { continue; }
+		transparentInstanceCount++;
+
+		VkDrawIndexedIndirectCommand cmd{};
+		cmd.firstIndex = meshData[i].index_buffer_offset / (sizeof(meshData[i].indices[0]));
+		cmd.indexCount = static_cast<uint32_t>(meshData[i].indices.size());
+		cmd.vertexOffset = static_cast<int32_t>(meshData[i].vertex_buffer_offset / sizeof(MultiDrawVertex));
+		cmd.firstInstance = i;
+		cmd.instanceCount = 1;
+		cpu_commands_transparent.push_back(cmd);
+	}
+
+	transparentDrawBuffers.indirectDrawBuffer = engine->create_buffer(transparentInstanceCount * sizeof(VkDrawIndexedIndirectCommand)
+		, indirect_flags, VMA_MEMORY_USAGE_GPU_ONLY);
+	transparentDrawBuffers.instanceCount = transparentInstanceCount;
+
+	AllocatedBuffer staging_indirect_transparent = engine->create_staging_buffer(transparentInstanceCount * sizeof(VkDrawIndexedIndirectCommand));
+	memcpy(staging_indirect_transparent.info.pMappedData, cpu_commands_transparent.data(), transparentInstanceCount * sizeof	(VkDrawIndexedIndirectCommand));
+	engine->copy_buffer(staging_indirect_transparent, transparentDrawBuffers.indirectDrawBuffer, transparentInstanceCount * sizeof(VkDrawIndexedIndirectCommand));
 
 
-
+	// OTHER BUFFERS
+	//  ADDRESSES
 	VkDeviceAddress addresses[3];
 	addresses[0] = engine->get_buffer_address(vertexBuffer);
 	addresses[1] = engine->get_buffer_address(materialBuffer);
 	addresses[2] = engine->get_buffer_address(instanceBuffer);
-
 
 	AllocatedBuffer staging_addresses = engine->create_staging_buffer(sizeof(addresses));
 	memcpy(staging_addresses.info.pMappedData, addresses, sizeof(addresses));
@@ -1977,7 +2020,7 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine, Loaded
 	engine->copy_buffer(staging_addresses, buffer_addresses_underlying, sizeof(addresses));
 	buffer_addresses.setup_data(engine->_device, buffer_addresses_underlying, sizeof(addresses));
 
-
+	//  TEXTURES/SAMPLERS
 	std::vector<DescriptorImageData> texture_descriptors;
 	std::vector<VkDescriptorImageInfo> samplerDescriptors;
 	assert(scene.samplers.size() <= 32);
@@ -1993,7 +2036,6 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine, Loaded
 		texture_descriptors.push_back({ VK_DESCRIPTOR_TYPE_SAMPLER, nullptr, samplers_remaining}); 
 	}
 
-
 	std::vector<VkDescriptorImageInfo> textureDescriptors;
 	for (int i = 0; i < scene.images.size(); i++) { 
 		textureDescriptors.push_back(
@@ -2008,7 +2050,7 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine, Loaded
 
 	texture_data.setup_data(engine->_device, texture_descriptors);
 
-
+	// SCENE DATA
 	sceneDataBuffer = engine->create_buffer(sizeof(GPUSceneDataMultiDraw), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	scene_data.setup_data(engine->_device, sceneDataBuffer, sizeof(GPUSceneDataMultiDraw));
 
@@ -2037,6 +2079,8 @@ void GLTFMetallic_RoughnessMultiDraw::recursive_node_process(LoadedGLTFMultiDraw
 		index_buffer_size += d.indices.size() * sizeof(d.indices[0]);
 		assert(d.indices.size() % 3 == 0);
 
+		mdata.transparent = d.hasTransparent;
+
 		instanceData.push_back({ nodeMatrix });
 		meshData.push_back(mdata);
 	}
@@ -2056,7 +2100,8 @@ void GLTFMetallic_RoughnessMultiDraw::destroy(VkDevice device, VmaAllocator allo
 	vmaDestroyBuffer(allocator, indexBuffer.buffer, indexBuffer.allocation);
 	vmaDestroyBuffer(allocator, instanceBuffer.buffer, instanceBuffer.allocation);
 	vmaDestroyBuffer(allocator, materialBuffer.buffer, materialBuffer.allocation);
-	vmaDestroyBuffer(allocator, indirectDrawBuffer.buffer, indirectDrawBuffer.allocation);
+	vmaDestroyBuffer(allocator, opaqueDrawBuffers.indirectDrawBuffer.buffer, opaqueDrawBuffers.indirectDrawBuffer.allocation);
+	vmaDestroyBuffer(allocator, transparentDrawBuffers.indirectDrawBuffer.buffer, transparentDrawBuffers.indirectDrawBuffer.allocation);
 	vmaDestroyBuffer(allocator, buffer_addresses_underlying.buffer, buffer_addresses_underlying.allocation);
 	vmaDestroyBuffer(allocator, sceneDataBuffer.buffer, sceneDataBuffer.allocation);
 

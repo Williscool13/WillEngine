@@ -547,8 +547,6 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 	}
 	assert(file.images.size() == gltf.images.size() + imageOffset);
 
-	std::vector<MaterialPass> materialType;//
-	//materialType.reserve(gltf.materials.size());
 	for (int i=0;i<gltf.materials.size();i++) {
 		MaterialData data;
 		data.color_factor = glm::vec4(
@@ -566,14 +564,15 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 		data.texture_sampler_indices.x = 0;
 		data.texture_image_indices.y = 0;
 		data.texture_sampler_indices.y = 0;
-		materialType.push_back(MaterialPass::MainColor);
+		MaterialPass matType = MaterialPass::MainColor;
 
 		if (gltf.materials[i].alphaMode == fastgltf::AlphaMode::Blend) {
-			materialType[i] = MaterialPass::Transparent;
+			matType = MaterialPass::Transparent;
 		}
 		else if (gltf.materials[i].alphaMode == fastgltf::AlphaMode::Mask) {
 			data.alphaCutoff.x = gltf.materials[i].alphaCutoff;
 		}
+		data.alphaCutoff.y = static_cast<float>(matType);
 
 		// grab textures from gltf file
 		if (gltf.materials[i].pbrData.baseColorTexture.has_value()) {
@@ -629,12 +628,19 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 	std::vector<MultiDrawVertex> vertices;
 	std::vector<uint32_t> indices;
 	for (fastgltf::Mesh& mesh : gltf.meshes) {
-
 		indices.clear();
 		vertices.clear();
-
+		bool hasTransparentPrimitives = false;
 		for (auto&& p : mesh.primitives) {
 			size_t initial_vtx = vertices.size();
+			size_t materialIndex = 0;
+
+			if (p.materialIndex.has_value()) {
+				materialIndex = p.materialIndex.value();
+				MaterialPass matType = static_cast<MaterialPass>(file.materials[materialIndex].alphaCutoff.y);
+				if (matType == MaterialPass::Transparent) { hasTransparentPrimitives = true; }
+			}
+
 
 			// load indexes
 			{
@@ -659,11 +665,7 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 						newvtx.normal = { 1, 0, 0 };
 						newvtx.color = glm::vec4{ 1.f };
 						newvtx.uv = glm::vec2(0, 0);
-						newvtx.materialIndex = 0;
-
-						if (p.materialIndex.has_value()) {
-							newvtx.materialIndex = p.materialIndex.value();
-						}
+						newvtx.materialIndex = materialIndex;
 
 						vertices[initial_vtx + index] = newvtx;
 					});
@@ -698,8 +700,12 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 						vertices[initial_vtx + index].color = v;
 					});
 			}
+
 		}
-		file.primitives.push_back({ vertices, indices });
+
+		file.primitives.push_back(
+			{ vertices, indices, hasTransparentPrimitives }
+		);
 
 	}
 

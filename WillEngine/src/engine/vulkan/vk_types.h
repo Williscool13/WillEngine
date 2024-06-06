@@ -45,6 +45,8 @@ struct MeshData {
 	std::vector<uint32_t> indices;
 	size_t vertex_buffer_offset = 0;
 	uint32_t index_buffer_offset = 0;
+	bool transparent = false;
+
 };
 
 
@@ -59,7 +61,7 @@ struct MaterialData {
 	glm::vec4 metal_rough_factors;
 	glm::vec4 texture_image_indices;
 	glm::vec4 texture_sampler_indices;
-	glm::vec4 alphaCutoff;
+	glm::vec4 alphaCutoff; // x: alpha cutoff, y: alpha mode, z: padding, w: padding
 };
 
 struct BoundindSphere {
@@ -89,9 +91,9 @@ struct GPUDrawPushConstants {
 
 // Material Structure
 enum class MaterialPass :uint8_t {
-	MainColor,
-	Transparent,
-	Other
+	MainColor = 1,
+	Transparent = 2,
+	Other = 3,
 };
 struct MaterialPipeline {
 	//VkPipeline pipeline;

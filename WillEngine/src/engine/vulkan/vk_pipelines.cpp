@@ -163,6 +163,15 @@ void ShaderObject::init_input_assembly(VkPrimitiveTopology topology)
 	_topology = topology;
 }
 
+void ShaderObject::init_vertex_input(VkVertexInputBindingDescription2EXT vertex_description,
+	std::vector<VkVertexInputAttributeDescription2EXT> attribute_descriptions)
+{
+	_vertex_description = vertex_description;
+	_attribute_descriptions = attribute_descriptions;
+
+	_vertexInputEnabled = true;
+}
+
 void ShaderObject::init_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace)
 {
 	_polygonMode = polygonMode;
@@ -305,7 +314,13 @@ void ShaderObject::bind_input_assembly(VkCommandBuffer cmd)
 	vkCmdSetPrimitiveTopologyEXT(cmd, _topology);
 	vkCmdSetPrimitiveRestartEnable(cmd, VK_FALSE);
 	// unused, using buffer device address instead
-	vkCmdSetVertexInputEXT(cmd, 0, nullptr, 0, nullptr);
+	if (_vertexInputEnabled) {
+		vkCmdSetVertexInputEXT(cmd, 1, &_vertex_description, _attribute_descriptions.size(), _attribute_descriptions.data());
+	}
+	else {
+		vkCmdSetVertexInputEXT(cmd, 0, nullptr, 0, nullptr);
+	}
+	
 }
 
 void ShaderObject::bind_rasterization(VkCommandBuffer cmd)

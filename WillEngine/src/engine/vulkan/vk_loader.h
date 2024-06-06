@@ -64,6 +64,7 @@ struct MultiDrawData {
 struct PrimitiveData {
     std::vector<MultiDrawVertex> vertices;
     std::vector<uint32_t> indices;
+    bool hasTransparent = false;
 };
 
 struct LoadedGLTFMultiDraw {

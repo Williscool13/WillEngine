@@ -168,8 +168,11 @@ struct GPUSceneDataMultiDraw {
 	uint32_t model_count;
 };
 
-struct MultiDrawIndirectBuffers {
+struct MultiDrawBuffers {
+	//DescriptorBufferUniform indirect_draw_buffer_address;
+	//AllocatedBuffer indirect_draw_buffer_underlying;
 	AllocatedBuffer indirectDrawBuffer;
+	size_t instanceCount;
 };
 
 struct GLTFMetallic_RoughnessMultiDraw {
@@ -206,13 +209,11 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	//  MAKE IT
 
 	// BINDING 4: INDIRECT DRAW BUFFER
-	DescriptorBufferUniform indirect_draw_buffer_address;
-	AllocatedBuffer indirect_draw_buffer_underlying;
-	AllocatedBuffer indirectDrawBuffer;
-
-
-	MultiDrawIndirectBuffers opaqueDrawBuffer;
-	MultiDrawIndirectBuffers transparentDrawBuffer;
+	//DescriptorBufferUniform indirect_draw_buffer_address;
+	//AllocatedBuffer indirect_draw_buffer_underlying;
+	//AllocatedBuffer indirectDrawBuffer;
+	MultiDrawBuffers opaqueDrawBuffers;
+	MultiDrawBuffers transparentDrawBuffers;
 
 	void build_pipelines(VulkanEngine* engine);
 
