@@ -53,6 +53,8 @@ struct MeshData {
 // Per mesh instance data
 struct InstanceData {
 	glm::mat4x4 modelMatrix; // will be accessed in shader through appropriate gl_instanceID
+	float vertexOffset;
+	glm::vec3 padding;
 };
 
 // Per material data
@@ -87,6 +89,7 @@ struct MultiDrawBuffers {
 	//AllocatedBuffer indirect_draw_buffer_underlying;
 	AllocatedBuffer indirectDrawBuffer;
 	uint32_t instanceCount;
+	uint32_t triangleCount;
 };
 
 // Material Structure

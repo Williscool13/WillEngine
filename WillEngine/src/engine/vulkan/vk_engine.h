@@ -130,6 +130,9 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	size_t number_of_instances = 0;
 	std::vector<InstanceData> instanceData;
 	std::vector<MeshData> meshData;
+	// store offsets of vertices
+	std::vector<uint32_t> vertexOffsets;
+
 	void build_buffers(VulkanEngine* engine, LoadedGLTFMultiDraw& scene);
 	void recursive_node_process(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix);
 
@@ -241,7 +244,7 @@ public:
 	void destroy_image(const AllocatedImage& img);
 
 	// Material Pipeline
-	GLTFMetallic_RoughnessMultiDraw MultiDrawPipeline;
+	GLTFMetallic_RoughnessMultiDraw multiDrawPipeline;
 
 
 	GPUSceneData sceneData;
