@@ -34,7 +34,7 @@ layout(buffer_reference, std430) buffer CommandBuffer
 	VkDrawIndexedIndirectCommand commands[];
 };
 
-layout(set = 3, binding = 0) uniform command_buffer_addresses
+layout(set = 2, binding = 0) uniform command_buffer_addresses
 {
 	CommandBuffer opaque_command_buffer;
 	uint opaque_command_buffer_count;
@@ -45,6 +45,34 @@ layout(set = 3, binding = 0) uniform command_buffer_addresses
 } command_buffer_address;
 
 
+// See "VisibilityTester" in the C++ code for explanation
+bool check_is_visible(mat4 mat, vec3 origin, float radius)
+{
+	uint plane_index = 0;
+	for (uint i = 0; i < 3; ++i)
+	{
+		for (uint j = 0; j < 2; ++j, ++plane_index)
+		{
+			if (plane_index == 2 || plane_index == 3)
+			{
+				continue;
+			}
+			const float sign  = (j > 0) ? 1.f : -1.f;
+			vec4        plane = vec4(0, 0, 0, 0);
+			for (uint k = 0; k < 4; ++k)
+			{
+				plane[k] = mat[k][3] + sign * mat[k][i];
+			}
+			plane.xyzw /= sqrt(dot(plane.xyz, plane.xyz));
+			if (dot(origin, plane.xyz) + plane.w + radius < 0)
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 void main()
 {
 	uint invoc_number = gl_GlobalInvocationID.x;
@@ -52,12 +80,13 @@ void main()
 	if (invoc_number >= total_command_count) { return; }
 
 	uint instance_id = 0;
+	uint command_index = 0;
 	// Do not modify the value of firstInstance
 	if (invoc_number >= command_buffer_address.opaque_command_buffer_count) {  
-		uint command_index = invoc_number - command_buffer_address.opaque_command_buffer_count;
+		command_index = invoc_number - command_buffer_address.opaque_command_buffer_count;
 		instance_id = command_buffer_address.transparent_command_buffer.commands[command_index].firstInstance;
 	} else {
-		uint command_index = invoc_number;
+		command_index = invoc_number;
 		instance_id = command_buffer_address.opaque_command_buffer.commands[command_index].firstInstance;
 	}
 	
@@ -73,15 +102,15 @@ void main()
 	float radius = mesh.radius;
 
 	// transform position to clip space
-	position = vec3(sceneData.viewproj * modelMatrix * vec4(position, 1.0));
+	position = vec3(modelMatrix * vec4(position, 1.0));
 
 	// check if in frustum
-
-
+	bool is_visible = check_is_visible(sceneData.viewproj, position, radius);
+	uint final_instance_count = is_visible ? 1 : 0;
 	// update instance count based on visibility
 	if (invoc_number >= command_buffer_address.opaque_command_buffer_count) {  
-		command_buffer_address.transparent_command_buffer.commands[instance_id].instanceCount = 1;
+		command_buffer_address.transparent_command_buffer.commands[command_index].instanceCount = final_instance_count;
 	} else {
-		command_buffer_address.opaque_command_buffer.commands[instance_id].instanceCount = 1;
+		command_buffer_address.opaque_command_buffer.commands[command_index].instanceCount = final_instance_count;
 	}
 }

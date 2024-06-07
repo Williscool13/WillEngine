@@ -17,7 +17,7 @@
 #endif
 
 #define ENABLE_FRAME_STATISTICS true
-#define USE_MSAA true
+#define USE_MSAA false
 #define MSAA_SAMPLES VK_SAMPLE_COUNT_4_BIT
 
 
@@ -487,7 +487,6 @@ void VulkanEngine::update_scene()
 	multiDrawSceneData.ambientColor = glm::vec4(.1f);
 	multiDrawSceneData.sunlightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.f);
 	multiDrawSceneData.sunlightDirection = glm::vec4(0, 1, 0.5, 1.f);
-	multiDrawSceneData.model_count = static_cast<uint32_t>(multiDrawPipeline.number_of_instances);
 	GPUSceneDataMultiDraw* multiDrawSceneUniformData = (GPUSceneDataMultiDraw*)multiDrawPipeline.sceneDataBuffer.allocation->GetMappedData();
 	memcpy(multiDrawSceneUniformData, &multiDrawSceneData, sizeof(GPUSceneDataMultiDraw));
 
@@ -502,8 +501,38 @@ void VulkanEngine::update_scene()
 
 void VulkanEngine::init_pipelines()
 {
+	// Defining Descriptor Layouts
+	{
+		DescriptorLayoutBuilder layoutBuilder;
+		layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		bufferAddressesDescriptorSetLayout = layoutBuilder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
+			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+	}
+	{
+		DescriptorLayoutBuilder layoutBuilder;
+		layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		sceneDataDescriptorSetLayout = layoutBuilder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
+			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
+	}
+	{
+		DescriptorLayoutBuilder layoutBuilder;
+		layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_SAMPLER, 32); // I dont expect any models to have more than 32 samplers
+		layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 255); // 255 is upper limit of textures
+
+		textureDescriptorSetLayout = layoutBuilder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT
+			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+	}
+	{
+		DescriptorLayoutBuilder layoutBuilder;
+		layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		computeCullingDescriptorSetLayout = layoutBuilder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT
+			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+	}
+
 	init_compute_pipelines();
 	init_fullscreen_pipeline();
+	init_compute_cull_pipeline();
 	multiDrawPipeline.build_pipelines(this);
 
 	_mainDeletionQueue.push_function([&]() {
@@ -514,6 +543,50 @@ void VulkanEngine::init_pipelines()
 void VulkanEngine::init_compute_cull_pipeline()
 {
 
+	VkDescriptorSetLayout layouts[] = {
+		bufferAddressesDescriptorSetLayout,
+		sceneDataDescriptorSetLayout,
+		computeCullingDescriptorSetLayout,
+	};
+
+	VkPipelineLayoutCreateInfo computeCullingPipelineLayoutCreateInfo{};
+	computeCullingPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	computeCullingPipelineLayoutCreateInfo.pNext = nullptr;
+	computeCullingPipelineLayoutCreateInfo.pSetLayouts = layouts;
+	computeCullingPipelineLayoutCreateInfo.setLayoutCount = 3;
+	computeCullingPipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
+	computeCullingPipelineLayoutCreateInfo.pushConstantRangeCount = 0;
+
+
+	VK_CHECK(vkCreatePipelineLayout(_device, &computeCullingPipelineLayoutCreateInfo, nullptr, &_computeCullingPipelineLayout));
+
+	VkShaderModule computeShader;
+	if (!vkutil::load_shader_module("shaders/gpu_cull.comp.spv", _device, &computeShader)) {
+		fmt::print("Error when building the compute shader (gpu_cull.comp.spv)\n"); abort();
+	}
+
+	VkPipelineShaderStageCreateInfo stageinfo{};
+	stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	stageinfo.pNext = nullptr;
+	stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	stageinfo.module = computeShader;
+	stageinfo.pName = "main"; // entry point in shader
+
+	VkComputePipelineCreateInfo computePipelineCreateInfo{};
+	computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	computePipelineCreateInfo.pNext = nullptr;
+	computePipelineCreateInfo.layout = _computeCullingPipelineLayout;
+	computePipelineCreateInfo.stage = stageinfo;
+	computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+
+	VK_CHECK(vkCreateComputePipelines(_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &_computeCullingPipeline));
+
+	vkDestroyShaderModule(_device, computeShader, nullptr);
+
+	_mainDeletionQueue.push_function([=]() {
+		vkDestroyPipelineLayout(_device, _computeCullingPipelineLayout, nullptr);
+		vkDestroyPipeline(_device, _computeCullingPipeline, nullptr);
+	});
 }
 
 void VulkanEngine::init_dearimgui()
@@ -826,8 +899,6 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
 
 	// Execute at 8x8 thread groups
 	vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(_windowExtent.width / 8.0f)), static_cast<uint32_t>(std::ceil(_windowExtent.height / 8.0f)), 1);
-
-
 }
 
 void VulkanEngine::draw_fullscreen(VkCommandBuffer cmd, AllocatedImage sourceImage, AllocatedImage targetImage)
@@ -896,13 +967,46 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 		depthAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
 	}
 	else {
-		colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_GENERAL);
+		VkClearValue colorClearValue = { 0.0f, 0.0f, 0.0f, 0.0f };
+		colorAttachment = vkinit::attachment_info(_drawImage.imageView, &colorClearValue, VK_IMAGE_LAYOUT_GENERAL);
 		VkClearValue depthClearValue = { 0.0f, 0 };
 		depthAttachment = vkinit::attachment_info(_depthImage.imageView, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 	}
 
 
+
 	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
+
+	constexpr uint32_t buffer_addresses = 0;
+	constexpr uint32_t scene_data = 1;
+	constexpr uint32_t compute_cull_data = 2;
+	constexpr uint32_t texture_data = 2;
+	VkDeviceSize offsets = 0;
+
+	// GPU Frustum Culling
+	{
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _computeCullingPipeline);
+		VkDescriptorBufferBindingInfoEXT compute_culling_binding_info[3]{};
+
+		compute_culling_binding_info[0] = multiDrawPipeline.buffer_addresses.get_descriptor_buffer_binding_info(_device);
+		compute_culling_binding_info[1] = multiDrawPipeline.scene_data.get_descriptor_buffer_binding_info(_device);
+		compute_culling_binding_info[2] = multiDrawPipeline.compute_culling_data_buffer_address.get_descriptor_buffer_binding_info(_device);
+		vkCmdBindDescriptorBuffersEXT(cmd, 3, compute_culling_binding_info);
+		
+
+
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _computeCullingPipelineLayout, 0, 1, &buffer_addresses, &offsets);
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _computeCullingPipelineLayout, 1, 1, &scene_data, &offsets);
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _computeCullingPipelineLayout, 2, 1, &compute_cull_data, &offsets);
+
+		vkCmdDispatch(cmd, static_cast<uint32_t>(
+			std::ceil(multiDrawPipeline.opaqueDrawBuffers.instanceCount + multiDrawPipeline.transparentDrawBuffers.instanceCount/ 64.0f)), 1, 1);
+	}
+
+	{
+
+	}
 	vkCmdBeginRendering(cmd, &renderInfo);
 
 	multiDrawPipeline.shaderObject->bind_viewport(cmd, static_cast<float>(_drawExtent.width), static_cast<float>(_drawExtent.height), 0.0f, 1.0f);
@@ -914,18 +1018,12 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	multiDrawPipeline.shaderObject->bind_shaders(cmd);
 	multiDrawPipeline.shaderObject->bind_rasterizaer_discard(cmd, VK_FALSE);
 
-
-
-	VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[4]{};
-	descriptor_buffer_binding_info[0] = multiDrawPipeline.buffer_addresses.get_descriptor_buffer_binding_info(_device);;
+	VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[3]{};
+	descriptor_buffer_binding_info[0] = multiDrawPipeline.buffer_addresses.get_descriptor_buffer_binding_info(_device);
 	descriptor_buffer_binding_info[1] = multiDrawPipeline.scene_data.get_descriptor_buffer_binding_info(_device);
 	descriptor_buffer_binding_info[2] = multiDrawPipeline.texture_data.get_descriptor_buffer_binding_info(_device);
 	vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptor_buffer_binding_info);
 
-	constexpr uint32_t buffer_addresses = 0;
-	constexpr uint32_t scene_data = 1;
-	constexpr uint32_t texture_data = 2;
-	VkDeviceSize offsets = 0;
 	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, multiDrawPipeline.layout, 0, 1, &buffer_addresses, &offsets);
 	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, multiDrawPipeline.layout, 1, 1, &scene_data, &offsets);
 	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, multiDrawPipeline.layout, 2, 1, &texture_data, &offsets);
@@ -937,10 +1035,12 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	multiDrawPipeline.shaderObject->init_blending(ShaderObject::BlendMode::NO_BLEND);
 	multiDrawPipeline.shaderObject->bind_depth_test(cmd);
 	multiDrawPipeline.shaderObject->bind_blending(cmd);
+
+
 	if (multiDrawPipeline.opaqueDrawBuffers.instanceCount > 0) {
 		vkCmdDrawIndexedIndirect(cmd, multiDrawPipeline.opaqueDrawBuffers.indirectDrawBuffer.buffer, 0, multiDrawPipeline.opaqueDrawBuffers.instanceCount, sizeof(VkDrawIndexedIndirectCommand));
 	}
-	
+
 	// Transparent Rendering
 	multiDrawPipeline.shaderObject->enable_depthtesting(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
 	multiDrawPipeline.shaderObject->init_blending(ShaderObject::BlendMode::ADDITIVE_BLEND);
@@ -949,6 +1049,21 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	if (multiDrawPipeline.transparentDrawBuffers.instanceCount > 0) {
 		vkCmdDrawIndexedIndirect(cmd, multiDrawPipeline.transparentDrawBuffers.indirectDrawBuffer.buffer, 0, multiDrawPipeline.transparentDrawBuffers.instanceCount, sizeof(VkDrawIndexedIndirectCommand));
 	}
+
+	/*multiDrawPipeline.shaderObject->enable_depthtesting(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+	multiDrawPipeline.shaderObject->init_blending(ShaderObject::BlendMode::NO_BLEND);
+	multiDrawPipeline.shaderObject->bind_depth_test(cmd);
+	multiDrawPipeline.shaderObject->bind_blending(cmd);
+
+	glm::mat4 tempModel = glm::translate(glm::mat4(1.0f), glm::vec3(300, 0, 0));
+	multiDrawPipeline.update_model_matrix(*loadedMultiDrawScenes["structure"], tempModel);
+
+	if (multiDrawPipeline.opaqueDrawBuffers.instanceCount > 0) {
+		vkCmdDrawIndexedIndirect(cmd, multiDrawPipeline.opaqueDrawBuffers.indirectDrawBuffer.buffer, 0, multiDrawPipeline.opaqueDrawBuffers.instanceCount, sizeof(VkDrawIndexedIndirectCommand));
+	}
+
+	multiDrawPipeline.update_model_matrix(*loadedMultiDrawScenes["structure"], modelMatrix);*/
+
 	
 	
 	if (ENABLE_FRAME_STATISTICS) {
@@ -1008,7 +1123,9 @@ void VulkanEngine::draw()
 	//	vkutil::transition_image(cmd, _drawImageBeforeMSAA.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	//	draw_fullscreen(cmd, _drawImage, _drawImageBeforeMSAA);
 	//}
-	vkutil::transition_image(cmd, _drawImageBeforeMSAA.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	if (USE_MSAA) {
+		vkutil::transition_image(cmd, _drawImageBeforeMSAA.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	}
 	vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
@@ -1394,34 +1511,6 @@ void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& f
 void GLTFMetallic_RoughnessMultiDraw::build_pipelines(VulkanEngine* engine)
 {
 	this->engine = engine;
-	// Defining Descriptor Layouts
-	{
-		DescriptorLayoutBuilder layoutBuilder;
-		layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		engine->bufferAddressesDescriptorSetLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-	}
-	{
-		DescriptorLayoutBuilder layoutBuilder;
-		layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		engine->sceneDataDescriptorSetLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-
-	}
-	{
-		DescriptorLayoutBuilder layoutBuilder;
-		layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_SAMPLER, 32); // I dont expect any models to have more than 32 samplers
-		layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 255); // 255 is upper limit of textures
-
-		engine->textureDescriptorSetLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_FRAGMENT_BIT
-			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-	}
-	{
-		DescriptorLayoutBuilder layoutBuilder;
-		layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		engine->computeCullingDescriptorSetLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_COMPUTE_BIT
-			, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-	}
 
 	buffer_addresses = DescriptorBufferUniform(engine->_instance, engine->_device
 		, engine->_physicalDevice, engine->_allocator, engine->bufferAddressesDescriptorSetLayout, 1);
@@ -1499,6 +1588,38 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine, Loaded
 	for (auto& n : scene.topNodes) {
 		recursive_node_process(scene, *n.get(), mMatrix);
 	}
+	glm::mat4 duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(200, 0, 0));
+	for (auto& n : scene.topNodes) {
+		recursive_node_process(scene, *n.get(), duplMatrix);
+	}
+	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(-200, 0, 0));
+	for (auto& n : scene.topNodes) {
+		recursive_node_process(scene, *n.get(), duplMatrix);
+	}
+	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 200));
+	for (auto& n : scene.topNodes) {
+		recursive_node_process(scene, *n.get(), duplMatrix);
+	}
+	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, -200));
+	for (auto& n : scene.topNodes) {
+		recursive_node_process(scene, *n.get(), duplMatrix);
+	}
+	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(200, 0, -200));
+	for (auto& n : scene.topNodes) {
+		recursive_node_process(scene, *n.get(), duplMatrix);
+	}
+	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(-200, 0, -200));
+	for (auto& n : scene.topNodes) {
+		recursive_node_process(scene, *n.get(), duplMatrix);
+	}
+	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(200, 0, -200));
+	for (auto& n : scene.topNodes) {
+		recursive_node_process(scene, *n.get(), duplMatrix);
+	}
+	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(-200, 0, -200));
+	for (auto& n : scene.topNodes) {
+		recursive_node_process(scene, *n.get(), duplMatrix);
+	}
 
 	// Vertex Data (Per Sub-Mesh), Index Data (Per Instance), Instance Data (Per Instance), Material Data (Per Material)
 	{
@@ -1566,6 +1687,8 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine, Loaded
 			cmd.firstInstance = static_cast<uint32_t>(i);
 			cmd.instanceCount = 1;
 			cpu_commands.push_back(cmd);
+
+
 		}
 
 		if (opaque_command_count > 0) {

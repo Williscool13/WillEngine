@@ -71,8 +71,8 @@ struct MaterialData {
 struct BoundingSphere {
 	BoundingSphere() = default;
 	explicit BoundingSphere(const RawMeshData& meshData);
-	glm::vec3 center;
-	float radius;
+	glm::vec3 center{};
+	float radius{};
 };
 
 struct ComputeCullingData {
@@ -93,7 +93,6 @@ struct GPUSceneDataMultiDraw {
 	glm::vec4 ambientColor;
 	glm::vec4 sunlightDirection; // w for sun power
 	glm::vec4 sunlightColor;
-	uint32_t model_count;
 };
 
 struct MultiDrawBuffers {

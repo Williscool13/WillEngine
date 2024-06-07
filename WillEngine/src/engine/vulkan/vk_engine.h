@@ -202,6 +202,10 @@ public:
 	DescriptorBufferSampler _fullscreenDescriptorBuffer;
 	ShaderObject _fullscreenPipeline;
 
+	// Compute Culling Pipeline
+	VkPipelineLayout _computeCullingPipelineLayout;
+	VkPipeline _computeCullingPipeline;
+
 
 	void init();
 	void cleanup();
