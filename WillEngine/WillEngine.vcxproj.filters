@@ -115,6 +115,9 @@
     <ClCompile Include="src\engine\utils\utils.cpp">
       <Filter>engine\utils</Filter>
     </ClCompile>
+    <ClCompile Include="src\engine\vulkan\vk_types.cpp">
+      <Filter>engine\vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\engine\core\acceleration_structures.h">

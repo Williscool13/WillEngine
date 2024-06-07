@@ -165,6 +165,7 @@ compile_shaders.sh</Command>
     <ClCompile Include="src\engine\vulkan\vk_initializers.cpp" />
     <ClCompile Include="src\engine\vulkan\vk_loader.cpp" />
     <ClCompile Include="src\engine\vulkan\vk_pipelines.cpp" />
+    <ClCompile Include="src\engine\vulkan\vk_types.cpp" />
     <ClCompile Include="src\fastgltf\base64.cpp" />
     <ClCompile Include="src\fastgltf\fastgltf.cpp" />
     <ClCompile Include="src\fastgltf\fastgltf.ixx" />

@@ -74,7 +74,9 @@ struct FrameData {
 };
 
 struct EngineStats {
+	
 	int triangle_count;
+	int vertex_count;
 	int drawcall_count;
 	RollingAverage frametime{ 500 };
 	RollingAverage scene_update_time{ 500 };
@@ -88,9 +90,7 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	// holds indirect draw buffers. Transparent will not go through compute culling.
 
 	VkPipelineLayout layout;
-	VkDescriptorSetLayout bufferAddressesDescriptorSetLayout;
-	VkDescriptorSetLayout sceneDataDescriptorSetLayout;
-	VkDescriptorSetLayout textureDescriptorSetLayout;
+	
 
 	AllocatedBuffer indexBuffer;
 
@@ -110,22 +110,17 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	//	when initializing, set descriptor count to be equal to the number of textures
 	DescriptorBufferSampler texture_data;
 
-
-	// BINDING 3: COMPUTE CULLING DATA
-	//  MAKE IT
-
-	// BINDING 4: INDIRECT DRAW BUFFER
-	//DescriptorBufferUniform indirect_draw_buffer_address;
-	//AllocatedBuffer indirect_draw_buffer_underlying;
-	//AllocatedBuffer indirectDrawBuffer;
+	// BINDING 3: INDIRECT DRAW BUFFER
+	DescriptorBufferUniform compute_culling_data_buffer_address;
+	AllocatedBuffer indirect_draw_buffer_underlying;
 	MultiDrawBuffers opaqueDrawBuffers;
 	MultiDrawBuffers transparentDrawBuffers;
+	AllocatedBuffer boundingSphereBuffer;
 
 	void build_pipelines(VulkanEngine* engine);
 
 
 	// buffer building
-	size_t vertex_buffer_size = 0;
 	size_t index_buffer_size = 0;
 	size_t number_of_instances = 0;
 	std::vector<InstanceData> instanceData;
@@ -135,6 +130,8 @@ struct GLTFMetallic_RoughnessMultiDraw {
 
 	void build_buffers(VulkanEngine* engine, LoadedGLTFMultiDraw& scene);
 	void recursive_node_process(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix);
+	void recursive_node_process_instance_data(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix, int& current_model_index);
+	void update_model_matrix(LoadedGLTFMultiDraw& scene, glm::mat4& topMatrix);
 
 	bool buffersBuilt{ false };
 	void destroy(VkDevice device, VmaAllocator allocator);
@@ -245,7 +242,10 @@ public:
 
 	// Material Pipeline
 	GLTFMetallic_RoughnessMultiDraw multiDrawPipeline;
-
+	VkDescriptorSetLayout bufferAddressesDescriptorSetLayout;
+	VkDescriptorSetLayout sceneDataDescriptorSetLayout;
+	VkDescriptorSetLayout textureDescriptorSetLayout;
+	VkDescriptorSetLayout computeCullingDescriptorSetLayout;
 
 	GPUSceneData sceneData;
 	VkDescriptorSetLayout gpuSceneDataDescriptorBufferSetLayout;
@@ -265,6 +265,7 @@ private:
 	void init_dearimgui();
 
 	void init_pipelines();
+	void init_compute_cull_pipeline();
 	void init_compute_pipelines();
 	void init_fullscreen_pipeline();
 	void init_default_data();

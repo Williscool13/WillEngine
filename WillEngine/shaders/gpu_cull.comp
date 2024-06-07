@@ -7,11 +7,9 @@
 
 layout(local_size_x = 64) in;
 
-struct ModelInformation
+struct MeshData
 {
-	float x;
-	float y;
-	float z;
+	vec3 position;
 	float radius;
 };
 
@@ -25,32 +23,65 @@ struct VkDrawIndexedIndirectCommand
 };
 
 
-layout(std430, set = 3, binding = 0) buffer readonly ModelInformationBuffer
+
+layout(buffer_reference, std430) readonly buffer MeshDataBuffer
 {
-	ModelInformation arr[];
-}
-model_buffer;
+	MeshData meshData[];
+};
 
-
-
-
-layout(std430, buffer_reference) buffer CommandBuffer
+layout(buffer_reference, std430) buffer CommandBuffer
 {
 	VkDrawIndexedIndirectCommand commands[];
-} command_buffer;
+};
 
-layout(set = 4, binding = 0) buffer Addresses
+layout(set = 3, binding = 0) uniform command_buffer_addresses
 {
-	CommandBuffer command_buffer;
+	CommandBuffer opaque_command_buffer;
+	uint opaque_command_buffer_count;
+	CommandBuffer transparent_command_buffer;
+	uint transparent_command_buffer_count;
+	MeshDataBuffer mesh_data_buffer;
+	vec3 padding;
 } command_buffer_address;
 
 
 void main()
 {
-	uint id = gl_GlobalInvocationID.x;
-	if (id >= sceneData.model_count)
-	{
-		return;
+	uint invoc_number = gl_GlobalInvocationID.x;
+	uint total_command_count = command_buffer_address.opaque_command_buffer_count + command_buffer_address.transparent_command_buffer_count;
+	if (invoc_number >= total_command_count) { return; }
+
+	uint instance_id = 0;
+	// Do not modify the value of firstInstance
+	if (invoc_number >= command_buffer_address.opaque_command_buffer_count) {  
+		uint command_index = invoc_number - command_buffer_address.opaque_command_buffer_count;
+		instance_id = command_buffer_address.transparent_command_buffer.commands[command_index].firstInstance;
+	} else {
+		uint command_index = invoc_number;
+		instance_id = command_buffer_address.opaque_command_buffer.commands[command_index].firstInstance;
 	}
-	command_buffer_address.command_buffer.commands[id].instanceCount = 1;
+	
+
+	// get model matrix and mesh id
+	Model m = buffer_addresses.modelBufferDeviceAddress.models[instance_id];
+	mat4 modelMatrix = m.model;
+	uint meshIndex = m.mesh_index;
+
+	// get mesh data w/ mesh index
+	MeshData mesh = command_buffer_address.mesh_data_buffer.meshData[meshIndex];
+	vec3 position = mesh.position;
+	float radius = mesh.radius;
+
+	// transform position to clip space
+	position = vec3(sceneData.viewproj * modelMatrix * vec4(position, 1.0));
+
+	// check if in frustum
+
+
+	// update instance count based on visibility
+	if (invoc_number >= command_buffer_address.opaque_command_buffer_count) {  
+		command_buffer_address.transparent_command_buffer.commands[instance_id].instanceCount = 1;
+	} else {
+		command_buffer_address.opaque_command_buffer.commands[instance_id].instanceCount = 1;
+	}
 }

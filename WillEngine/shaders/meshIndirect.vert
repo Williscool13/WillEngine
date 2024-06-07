@@ -13,8 +13,9 @@ layout (location = 3) flat out uint outMaterialIndex;
 
 void main()
 {
-	Vertex v = buffer_addresses.vertexbufferDeviceAddress.vertices[gl_VertexIndex];
 	Model m = buffer_addresses.modelBufferDeviceAddress.models[gl_InstanceIndex];
+	uint targetVertex = gl_VertexIndex + m.vertex_offset;
+	Vertex v = buffer_addresses.vertexbufferDeviceAddress.vertices[targetVertex];
 
 	vec4 _position = vec4(v.position, 1.0);
 	gl_Position =  sceneData.viewproj * m.model * _position;

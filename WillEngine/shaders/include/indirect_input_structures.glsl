@@ -24,6 +24,10 @@ struct Material
 struct Model
 {
 	mat4 model;
+	uint vertex_offset;
+	uint vertex_count;
+	uint index_count;
+	uint mesh_index;
 };
 
 

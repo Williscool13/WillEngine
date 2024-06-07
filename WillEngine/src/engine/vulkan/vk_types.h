@@ -43,9 +43,7 @@ struct RawMeshData {
 
 // Processed Mesh Data
 struct MeshData {
-	std::vector<MultiDrawVertex> vertices;
 	std::vector<uint32_t> indices;
-	size_t vertex_buffer_offset = 0;
 	uint32_t index_buffer_offset = 0;
 	bool transparent = false; // true if any primitive in the mesh is transparent
 };
@@ -53,8 +51,12 @@ struct MeshData {
 // Per mesh instance data
 struct InstanceData {
 	glm::mat4x4 modelMatrix; // will be accessed in shader through appropriate gl_instanceID
-	float vertexOffset;
-	glm::vec3 padding;
+	uint32_t vertexOffset; 
+	// slight data redundancy here, since this value will be the same for each instance that uses the same mesh
+	// significantly better than duplicating vertices in the vertex buffer
+	uint32_t vertexCount;
+	uint32_t indexCount;
+	uint32_t meshIndex;
 };
 
 // Per material data
@@ -67,11 +69,21 @@ struct MaterialData {
 };
 
 struct BoundingSphere {
-	float x;
-	float y;
-	float z;
+	BoundingSphere() = default;
+	explicit BoundingSphere(const RawMeshData& meshData);
+	glm::vec3 center;
 	float radius;
 };
+
+struct ComputeCullingData {
+	VkDeviceAddress opaqueCommandBufferAddress;
+	uint32_t opaqueCommandBufferCount;
+	VkDeviceAddress transparentCommandBufferAddress;
+	uint32_t transparentCommandBufferCount;
+	VkDeviceAddress meshBoundsAddress;
+	glm::vec3 padding;
+};
+
 
 
 struct GPUSceneDataMultiDraw {
@@ -85,11 +97,8 @@ struct GPUSceneDataMultiDraw {
 };
 
 struct MultiDrawBuffers {
-	//DescriptorBufferUniform indirect_draw_buffer_address;
-	//AllocatedBuffer indirect_draw_buffer_underlying;
 	AllocatedBuffer indirectDrawBuffer;
 	uint32_t instanceCount;
-	uint32_t triangleCount;
 };
 
 // Material Structure
