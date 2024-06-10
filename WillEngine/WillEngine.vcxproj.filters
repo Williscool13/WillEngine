@@ -197,5 +197,14 @@
     <None Include="shaders\gpu_cull.comp">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\environment.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\environment.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\include\environment_include.glsl">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

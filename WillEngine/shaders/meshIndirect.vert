@@ -5,10 +5,11 @@
 
 #include "indirect_input_structures.glsl"
 
-layout (location = 0) out vec3 outNormal;
-layout (location = 1) out vec3 outColor;
-layout (location = 2) out vec2 outUV;
-layout (location = 3) flat out uint outMaterialIndex;
+layout (location = 0) out vec3 outPosition;
+layout (location = 1) out vec3 outNormal;
+layout (location = 2) out vec3 outColor;
+layout (location = 3) out vec2 outUV;
+layout (location = 4) flat out uint outMaterialIndex;
 
 
 void main()
@@ -22,6 +23,7 @@ void main()
 
 
 	mat3 i_t_m = inverse(transpose(mat3(m.model)));
+	outPosition = vec3(m.model * _position);
 	outNormal = i_t_m *  v.normal;
 	outColor = v.color.xyz;
 	outUV = v.uv;//vec2(v.uv_x, v.uv_y);

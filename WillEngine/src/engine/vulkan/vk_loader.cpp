@@ -69,9 +69,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 						fullpath.c_str(),
 						KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
 						&kTexture);
-					
 
-					
 
 					if (ktxresult == KTX_SUCCESS) {
 						VkImageFormatProperties formatProperties;
@@ -261,6 +259,7 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 			, gltf.materials[i].pbrData.baseColorFactor[2]
 			, gltf.materials[i].pbrData.baseColorFactor[3]
 		);
+
 		data.metal_rough_factors.x = gltf.materials[i].pbrData.metallicFactor;
 		data.metal_rough_factors.y = gltf.materials[i].pbrData.roughnessFactor;
 		data.alphaCutoff.x = 0.0f;

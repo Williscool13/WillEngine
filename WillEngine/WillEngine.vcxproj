@@ -191,10 +191,13 @@ compile_shaders.sh</Command>
   </ItemGroup>
   <ItemGroup>
     <None Include="compile_shaders.sh" />
+    <None Include="shaders\environment.frag" />
+    <None Include="shaders\environment.vert" />
     <None Include="shaders\fullscreen.frag" />
     <None Include="shaders\fullscreen.vert" />
     <None Include="shaders\gpu_cull.comp" />
     <None Include="shaders\gradient_color.comp" />
+    <None Include="shaders\include\environment_include.glsl" />
     <None Include="shaders\include\input_structures.glsl" />
     <None Include="shaders\mesh.frag" />
     <None Include="shaders\mesh.vert" />
