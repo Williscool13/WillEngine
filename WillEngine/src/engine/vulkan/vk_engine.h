@@ -141,9 +141,6 @@ class VulkanEngine {
 public:
 
 
-	PFN_vkCmdBindDescriptorBuffersEXT vkCmdBindDescriptorBuffersEXT;
-	PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT;
-
 	bool _isInitialized{ false };
 	int _frameNumber {0};
 	bool stop_rendering{ false };
@@ -241,6 +238,7 @@ public:
 	VkSampler _defaultSamplerNearest;
 	AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 	AllocatedImage create_image(void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	AllocatedImage create_cubemap_image(std::vector<void*> data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 	int get_channel_count(VkFormat format);
 	void destroy_image(const AllocatedImage& img);
 
@@ -262,7 +260,6 @@ public:
 private:
 	void init_vulkan();
 	void init_swapchain();
-	void init_draw_images();
 	void init_commands();
 	void init_sync_structures();
 	void init_descriptors();

@@ -8,8 +8,6 @@
 #define VMA_IMPLEMENTATION
 #include <vma/vk_mem_alloc.h>
 
-
-
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
 #else
@@ -95,6 +93,11 @@ void VulkanEngine::init()
 // Output: Instance, Physical Device, Device, Surface, Graphics Queue, Graphics Queue Family, Allocator
 void VulkanEngine::init_vulkan()
 {
+	// volk init
+	VkResult res = volkInitialize();
+	if (res != VK_SUCCESS) {
+		throw std::runtime_error("Failed to initialize volk");
+	}
 	vkb::InstanceBuilder builder;
 
 	// make the vulkan instance, with basic debug features
@@ -109,6 +112,9 @@ void VulkanEngine::init_vulkan()
 	// vulkan instance
 	_instance = vkb_inst.instance;
 	_debug_messenger = vkb_inst.debug_messenger;
+
+	// volk init
+	volkLoadInstance(_instance);
 
 	// sdl vulkan surface
 	SDL_Vulkan_CreateSurface(_window, _instance, &_surface);
@@ -158,8 +164,6 @@ void VulkanEngine::init_vulkan()
 	_device = vkbDevice.device;
 	_physicalDevice = targetDevice.physical_device;
 
-	vkCmdBindDescriptorBuffersEXT = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetDeviceProcAddr(_device, "vkCmdBindDescriptorBuffersEXT");
-	vkCmdSetDescriptorBufferOffsetsEXT = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetDeviceProcAddr(_device, "vkCmdSetDescriptorBufferOffsetsEXT");
 
 	// Graphics Queue
 	_graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
@@ -171,86 +175,18 @@ void VulkanEngine::init_vulkan()
 	allocatorInfo.device = _device;
 	allocatorInfo.instance = _instance;
 	allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+	VmaVulkanFunctions vulkanFunctions = {};
+	vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+	vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+	allocatorInfo.pVulkanFunctions = &vulkanFunctions;
 	vmaCreateAllocator(&allocatorInfo, &_allocator);
-
-	_mainDeletionQueue.push_function([&]() {
-		vmaDestroyAllocator(_allocator);
-		});
 }
 
+#pragma region Swapchain / Draw Image
 void VulkanEngine::init_swapchain()
 {
 	create_swapchain(_windowExtent.width, _windowExtent.height);
 	create_draw_images(_windowExtent.width, _windowExtent.height);
-
-	_mainDeletionQueue.push_function([&]() {
-		destroy_draw_iamges();
-		});
-}
-
-void VulkanEngine::init_draw_images() {
-	// Draw Image
-	_drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
-	VkExtent3D drawImageExtent = { _windowExtent.width, _windowExtent.height, 1 };
-	_drawImage.imageExtent = drawImageExtent;
-	VkImageUsageFlags drawImageUsages{};
-	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
-	drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	drawImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
-	VkImageCreateInfo rimg_info = vkinit::image_create_info(_drawImage.imageFormat, drawImageUsages, drawImageExtent);
-	VmaAllocationCreateInfo rimg_allocinfo = {};
-	rimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-	rimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);// only found on GPU
-	vmaCreateImage(_allocator, &rimg_info, &rimg_allocinfo, &_drawImage.image, &_drawImage.allocation, nullptr);
-
-	if (USE_MSAA) {
-		drawImageUsages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
-		rimg_info = vkinit::image_create_info(_drawImage.imageFormat, drawImageUsages, drawImageExtent);
-		rimg_info.samples = VK_SAMPLE_COUNT_4_BIT;
-		vmaCreateImage(_allocator, &rimg_info, &rimg_allocinfo, &_drawImageBeforeMSAA.image, &_drawImageBeforeMSAA.allocation, nullptr);
-	}
-
-	// Depth Image
-	_depthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
-	_depthImage.imageExtent = drawImageExtent;
-	VkImageUsageFlags depthImageUsages{};
-	depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	VkImageCreateInfo dimg_info = vkinit::image_create_info(_depthImage.imageFormat, depthImageUsages, drawImageExtent);
-	if (USE_MSAA) { dimg_info.samples = VK_SAMPLE_COUNT_4_BIT; }
-	vmaCreateImage(_allocator, &dimg_info, &rimg_allocinfo, &_depthImage.image, &_depthImage.allocation, nullptr);
-
-	// Create image views
-	VkImageViewCreateInfo rview_info = vkinit::imageview_create_info(_drawImage.imageFormat, _drawImage.image
-		, VK_IMAGE_ASPECT_COLOR_BIT);
-	VK_CHECK(vkCreateImageView(_device, &rview_info, nullptr, &_drawImage.imageView));
-
-	if (USE_MSAA) {
-		VkImageViewCreateInfo rview_info_before_msaa = vkinit::imageview_create_info(_drawImage.imageFormat, _drawImageBeforeMSAA.image
-			, VK_IMAGE_ASPECT_COLOR_BIT);
-		VK_CHECK(vkCreateImageView(_device, &rview_info_before_msaa, nullptr, &_drawImageBeforeMSAA.imageView));
-	}
-
-	VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(_depthImage.imageFormat, _depthImage.image
-		, VK_IMAGE_ASPECT_DEPTH_BIT);
-	VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImage.imageView));
-
-	// Deletion Queue
-	_mainDeletionQueue.push_function([&]() {
-		vkDestroyImageView(_device, _drawImage.imageView, nullptr);
-		vmaDestroyImage(_allocator, _drawImage.image, _drawImage.allocation);
-		});
-	if (USE_MSAA) {
-		_mainDeletionQueue.push_function([&]() {
-			vkDestroyImageView(_device, _drawImageBeforeMSAA.imageView, nullptr);
-			vmaDestroyImage(_allocator, _drawImageBeforeMSAA.image, _drawImageBeforeMSAA.allocation);
-			});
-	}
-	_mainDeletionQueue.push_function([&]() {
-		vkDestroyImageView(_device, _depthImage.imageView, nullptr);
-		vmaDestroyImage(_allocator, _depthImage.image, _depthImage.allocation);
-		});
 }
 
 void VulkanEngine::create_draw_images(uint32_t width, uint32_t height) {
@@ -382,10 +318,8 @@ void VulkanEngine::init_commands()
 	VkCommandBufferAllocateInfo immCmdAllocInfo =
 		vkinit::command_buffer_allocate_info(_immCommandPool);
 	VK_CHECK(vkAllocateCommandBuffers(_device, &immCmdAllocInfo, &_immCommandBuffer));
-	_mainDeletionQueue.push_function([=]() {
-		vkDestroyCommandPool(_device, _immCommandPool, nullptr);
-		});
 }
+#pragma endregion
 
 void VulkanEngine::init_sync_structures()
 {
@@ -405,9 +339,6 @@ void VulkanEngine::init_sync_structures()
 
 	// Immediate Rendeirng
 	VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_immFence));
-	_mainDeletionQueue.push_function([=]() {
-		vkDestroyFence(_device, _immFence, nullptr);
-		});
 }
 
 void VulkanEngine::init_descriptors()
@@ -636,6 +567,7 @@ void VulkanEngine::init_dearimgui()
 	init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
 	init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &_swapchainImageFormat;
 
+
 	ImGui_ImplVulkan_Init(&init_info);
 	ImGui_ImplVulkan_CreateFontsTexture();
 
@@ -752,7 +684,6 @@ void VulkanEngine::init_fullscreen_pipeline()
 
 	_fullscreenPipeline = {};
 
-	_fullscreenPipeline.init(_device);
 	_fullscreenPipeline.init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 	_fullscreenPipeline.init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
 	//_fullscreenPipeline.disable_multisampling();
@@ -778,7 +709,6 @@ void VulkanEngine::init_fullscreen_pipeline()
 		vkDestroyDescriptorSetLayout(_device, _fullscreenDescriptorSetLayout, nullptr);
 		_fullscreenDescriptorBuffer.destroy(_device, _allocator);
 		vkDestroyPipelineLayout(_device, _fullscreenPipelineLayout, nullptr);
-		PFN_vkDestroyShaderEXT vkDestroyShaderEXT = reinterpret_cast<PFN_vkDestroyShaderEXT>(vkGetDeviceProcAddr(_device, "vkDestroyShaderEXT"));
 		vkDestroyShaderEXT(_device, _fullscreenPipeline._shaders[0], nullptr);
 		vkDestroyShaderEXT(_device, _fullscreenPipeline._shaders[1], nullptr);
 		});
@@ -863,11 +793,16 @@ void VulkanEngine::cleanup()
 			vkDestroySemaphore(_device, _frames[i]._swapchainSemaphore, nullptr);
 		}
 
+		vkDestroyCommandPool(_device, _immCommandPool, nullptr);
+		vkDestroyFence(_device, _immFence, nullptr);
+
+		destroy_draw_iamges();
 		destroy_swapchain();
+
+		vmaDestroyAllocator(_allocator);
 
 		vkDestroySurfaceKHR(_instance, _surface, nullptr);
 		vkDestroyDevice(_device, nullptr);
-
 
 		vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
 		vkDestroyInstance(_instance, nullptr);
@@ -974,8 +909,6 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 		depthAttachment = vkinit::attachment_info(_depthImage.imageView, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 	}
 
-
-
 	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
 
 	constexpr uint32_t buffer_addresses = 0;
@@ -1060,8 +993,6 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, multiDrawPipeline.layout, 2, 1, &texture_data, &offsets);
 
 		vkCmdBindIndexBuffer(cmd, multiDrawPipeline.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-		
 	}
 	
 	// Opaque Rendering
@@ -1215,8 +1146,6 @@ void VulkanEngine::run()
 
 		while (SDL_PollEvent(&e) != 0) {
 			if (e.type == SDL_QUIT) { bQuit = true; continue; }
-			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_r) { SDL_SetRelativeMouseMode(SDL_FALSE); }
-			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_t) { SDL_SetRelativeMouseMode(SDL_TRUE); }
 			if (e.type == SDL_WINDOWEVENT) {
 				if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
 					stop_rendering = true;
@@ -1265,7 +1194,7 @@ void VulkanEngine::run()
 		ImGui_ImplSDL2_NewFrame();
 
 		ImGui::NewFrame();
-
+		bool show_demo_window = true;
 		if (ImGui::Begin("background")) {
 
 			ComputeEffect& selected = backgroundEffects[currentBackgroundEffect];
@@ -1305,9 +1234,7 @@ void VulkanEngine::run()
 		draw();
 
 
-		//everything else
-
-			//get clock again, compare with start clock
+		//get clock again, compare with start clock
 		auto end = std::chrono::system_clock::now();
 
 		//convert to microseconds (integer), and then come back to miliseconds
@@ -1566,7 +1493,6 @@ void GLTFMetallic_RoughnessMultiDraw::build_pipelines(VulkanEngine* engine)
 	layout = newLayout;
 
 
-	shaderObject->init(engine->_device);
 	shaderObject->init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 	shaderObject->init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
 	if (USE_MSAA) {
@@ -1903,7 +1829,6 @@ void GLTFMetallic_RoughnessMultiDraw::destroy(VkDevice device, VmaAllocator allo
 
 	vkDestroyPipelineLayout(engine->_device, layout, nullptr);
 
-	PFN_vkDestroyShaderEXT vkDestroyShaderEXT = reinterpret_cast<PFN_vkDestroyShaderEXT>(vkGetDeviceProcAddr(engine->_device, "vkDestroyShaderEXT"));
 	vkDestroyShaderEXT(engine->_device, shaderObject->_shaders[0], nullptr);
 	vkDestroyShaderEXT(engine->_device, shaderObject->_shaders[1], nullptr);
 

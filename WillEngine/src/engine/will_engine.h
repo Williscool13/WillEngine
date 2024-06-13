@@ -16,9 +16,12 @@
 #include <unordered_map>
 #include <fstream>
 // vulkan
+#define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
+// volk
+#include <volk/volk.h>
 // vma
 #include <vma/vk_mem_alloc.h>
 // fmt
@@ -42,6 +45,7 @@
 // vkb
 #include <vkbootstrap/VkBootstrap.h>
 // imgui
+#define IMGUI_IMPL_VULKAN_USE_VOLK
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_sdl2.h>
 #include <imgui/backends/imgui_impl_vulkan.h>

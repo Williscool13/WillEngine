@@ -35,23 +35,11 @@
     <Filter Include="engine\utils">
       <UniqueIdentifier>{336a8811-8d68-4432-9b62-f4025a85bc01}</UniqueIdentifier>
     </Filter>
+    <Filter Include="libraries\volk">
+      <UniqueIdentifier>{ed0e98eb-e9a9-4d2b-aa18-c1148e2a7f8a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="include\imgui\imgui_tables.cpp">
-      <Filter>libraries\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\imgui_widgets.cpp">
-      <Filter>libraries\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\imgui.cpp">
-      <Filter>libraries\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\imgui_demo.cpp">
-      <Filter>libraries\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\imgui_draw.cpp">
-      <Filter>libraries\imgui</Filter>
-    </ClCompile>
     <ClCompile Include="src\fastgltf\fastgltf.cpp">
       <Filter>libraries\fastgltf</Filter>
     </ClCompile>
@@ -66,12 +54,6 @@
     </ClCompile>
     <ClCompile Include="src\simdjson\simdjson.cpp">
       <Filter>libraries\simdjson</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\backends\imgui_impl_vulkan.cpp">
-      <Filter>libraries\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\backends\imgui_impl_sdl2.cpp">
-      <Filter>libraries\imgui</Filter>
     </ClCompile>
     <ClCompile Include="src\vkbootstrap\VkBootstrap.cpp">
       <Filter>libraries\vkbootstrap</Filter>
@@ -117,6 +99,30 @@
     </ClCompile>
     <ClCompile Include="src\engine\vulkan\vk_types.cpp">
       <Filter>engine\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imgui\imgui_demo.cpp">
+      <Filter>libraries\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imgui\imgui_draw.cpp">
+      <Filter>libraries\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imgui\imgui_tables.cpp">
+      <Filter>libraries\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imgui\imgui_widgets.cpp">
+      <Filter>libraries\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imgui\imgui.cpp">
+      <Filter>libraries\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imgui\backends\imgui_impl_sdl2.cpp">
+      <Filter>libraries\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imgui\backends\imgui_impl_vulkan.cpp">
+      <Filter>libraries\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="include\volk\volk.c">
+      <Filter>libraries\volk</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

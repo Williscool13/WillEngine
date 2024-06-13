@@ -165,6 +165,28 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 	}
 }
 
+std::optional<std::vector<float*>> loadCubemapFaces(VulkanEngine* engine, std::string_view filePath)
+{
+	/*if (faceFiles.size() != 6) {
+		throw std::runtime_error("Cubemap requires exactly 6 faces.");
+	}
+
+	int width, height, channels;
+	std::vector<float*> facesData;
+
+	for (const auto& file : faceFiles) {
+		float* data = stbi_loadf(file.c_str(), &width, &height, &channels, 4);
+		if (!data) {
+			throw std::runtime_error("Failed to load HDR image: " + file);
+		}
+		facesData.push_back(data);
+	}
+
+	return facesData;*/
+	return {};
+
+}
+
 std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngine* engine, std::string_view filePath)
 {
 	fmt::print("Loading GLTF: {}\n", filePath);

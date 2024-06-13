@@ -2,13 +2,7 @@
 
 
 VkPhysicalDeviceDescriptorBufferPropertiesEXT DescriptorBuffer::descriptor_buffer_properties = {};
-PFN_vkGetDescriptorSetLayoutSizeEXT DescriptorBuffer::vkGetDescriptorSetLayoutSizeEXT = nullptr;
-PFN_vkGetDescriptorSetLayoutBindingOffsetEXT DescriptorBuffer::vkGetDescriptorSetLayoutBindingOffsetEXT = nullptr;
-PFN_vkCmdBindDescriptorBuffersEXT DescriptorBuffer::vkCmdBindDescriptorBuffersEXT = nullptr;
-PFN_vkCmdSetDescriptorBufferOffsetsEXT DescriptorBuffer::vkCmdSetDescriptorBufferOffsetsEXT = nullptr;
-PFN_vkGetDescriptorEXT DescriptorBuffer::vkGetDescriptorEXT = nullptr;
 bool DescriptorBuffer::device_properties_retrieved = false;
-bool DescriptorBuffer::extension_functions_defined = false;
 
 DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device
 	, VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
@@ -23,18 +17,6 @@ DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device
 		device_properties.pNext = &descriptor_buffer_properties;
 		vkGetPhysicalDeviceProperties2(physicalDevice, &device_properties);
 		device_properties_retrieved = true;
-	}
-
-
-	// Define Extension Functions
-	if (!extension_functions_defined) {
-		fmt::print("Retrieving Extension Functions\n");
-		vkGetDescriptorSetLayoutSizeEXT = (PFN_vkGetDescriptorSetLayoutSizeEXT)vkGetInstanceProcAddr(instance, "vkGetDescriptorSetLayoutSizeEXT");
-		vkGetDescriptorSetLayoutBindingOffsetEXT = (PFN_vkGetDescriptorSetLayoutBindingOffsetEXT)vkGetInstanceProcAddr(instance, "vkGetDescriptorSetLayoutBindingOffsetEXT");
-		vkCmdBindDescriptorBuffersEXT = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetDeviceProcAddr(device, "vkCmdBindDescriptorBuffersEXT");
-		vkCmdSetDescriptorBufferOffsetsEXT = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetDeviceProcAddr(device, "vkCmdSetDescriptorBufferOffsetsEXT");
-		vkGetDescriptorEXT = (PFN_vkGetDescriptorEXT)vkGetDeviceProcAddr(device, "vkGetDescriptorEXT");
-		extension_functions_defined = true;
 	}
 
 	// Descriptor Set Layout

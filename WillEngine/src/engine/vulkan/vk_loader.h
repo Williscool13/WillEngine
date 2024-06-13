@@ -29,5 +29,5 @@ private:
     void clearAll();
 };
 
-
+std::optional<std::vector<float*>> loadCubemapFaces(VulkanEngine* engine, std::string_view filePath);
 std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngine* engine, std::string_view filePath);

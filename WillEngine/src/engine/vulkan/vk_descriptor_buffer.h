@@ -38,15 +38,8 @@ protected:
 
 	// static these things cause they are the same for all instances.
 	//  staticing reduces size from 400 to 112 bytes
-	static PFN_vkGetDescriptorSetLayoutSizeEXT vkGetDescriptorSetLayoutSizeEXT;
-	static PFN_vkGetDescriptorSetLayoutBindingOffsetEXT vkGetDescriptorSetLayoutBindingOffsetEXT;
-	static PFN_vkCmdBindDescriptorBuffersEXT vkCmdBindDescriptorBuffersEXT;
-	static PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT;
-	static PFN_vkGetDescriptorEXT vkGetDescriptorEXT;
-
 	static VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptor_buffer_properties;
 	static bool device_properties_retrieved;
-	static bool extension_functions_defined;
 	bool is_buffer_mapped = false;
 	void* buffer_ptr;
 };

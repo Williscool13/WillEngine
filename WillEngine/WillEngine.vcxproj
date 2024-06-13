@@ -152,6 +152,7 @@ compile_shaders.sh</Command>
     <ClCompile Include="include\imgui\imgui_draw.cpp" />
     <ClCompile Include="include\imgui\imgui_tables.cpp" />
     <ClCompile Include="include\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="include\volk\volk.c" />
     <ClCompile Include="src\engine\core\acceleration_structures.cpp" />
     <ClCompile Include="src\engine\core\camera.cpp" />
     <ClCompile Include="src\engine\main.cpp" />
