@@ -65,15 +65,15 @@ void VulkanEngine::init()
 	init_default_data();
 
 
-	//std::string structurePath = { "assets\\models\\structure.glb" };
-	std::string structurePath = { "assets\\models\\MetalRoughSpheres\\glTF-Binary\\MetalRoughSpheres.glb" };
+	std::string structurePath = { "assets\\models\\structure.glb" };
+	
 	//std::string structurePath = { "assets\\models\\primitives\\primitives.gltf" };   
 	//std::string structurePath = { "assets\\models\\vokselia\\vokselia.gltf" };
 	//std::string structurePath = { "assets\\models\\virtual_city\\VirtualCity.glb" };
 	//std::string structurePath = { "assets\\models\\AlphaBlendModeTest\\glTF-Binary\\AlphaBlendModeTest.glb" };
-	auto test = loadGltfMultiDraw(this, structurePath);
-	multiDrawPipeline->build_buffers(this, *test.value().get());
-	loadedMultiDrawScenes["structure"] = *test;
+	//auto test = loadGltfMultiDraw(this, structurePath);
+	multiDrawPipeline->load_gltf(this, structurePath);
+	multiDrawPipeline->build_buffers(this);
 
 	//mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
 	mainCamera.yaw = -90.0f;
@@ -375,33 +375,6 @@ void VulkanEngine::init_descriptors()
 		computeImageDescriptorBuffer.destroy(_device, _allocator);
 		});
 #pragma endregion
-
-#pragma region Scene Data Descriptor Buffer
-	{
-		DescriptorLayoutBuilder builder;
-		builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		gpuSceneDataDescriptorBufferSetLayout = builder.build(_device
-			, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-			, nullptr
-			, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
-		);
-	}
-
-	gpuSceneDataDescriptorBuffer = DescriptorBufferUniform(_instance, _device, _physicalDevice, _allocator, gpuSceneDataDescriptorBufferSetLayout);
-	gpuSceneDataBuffer =
-		create_buffer(sizeof(GPUSceneData)
-			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-			, VMA_MEMORY_USAGE_CPU_TO_GPU
-		);
-
-	gpuSceneDataDescriptorBuffer.setup_data(_device, gpuSceneDataBuffer, sizeof(GPUSceneData));
-	_mainDeletionQueue.push_function([&]() {
-		vkDestroyDescriptorSetLayout(_device, gpuSceneDataDescriptorBufferSetLayout, nullptr);
-		gpuSceneDataDescriptorBuffer.destroy(_device, _allocator);
-		destroy_buffer(gpuSceneDataBuffer);
-		});
-
-#pragma endregion
 }
 
 void VulkanEngine::update_scene()
@@ -422,10 +395,8 @@ void VulkanEngine::update_scene()
 	multiDrawSceneData.sunlightColor = glm::vec4(1.0f, 1.0f, 1.0f, 2.0f);
 	multiDrawSceneData.sunlightDirection = glm::vec4(0, 1, 0.5f, 1.f); // inverted to match openGL up/down
 	multiDrawSceneData.cameraPosition = glm::vec4(mainCamera.position, 1.f);
-	GPUSceneDataMultiDraw* multiDrawSceneUniformData = (GPUSceneDataMultiDraw*)multiDrawPipeline->sceneDataBuffer.allocation->GetMappedData();
-	memcpy(multiDrawSceneUniformData, &multiDrawSceneData, sizeof(GPUSceneDataMultiDraw));
 
-	multiDrawPipeline->update_model_matrix(*loadedMultiDrawScenes["structure"], modelMatrix);
+	multiDrawPipeline->update_draw_data(multiDrawSceneData, modelMatrix);
 
 
 	auto end = std::chrono::system_clock::now();

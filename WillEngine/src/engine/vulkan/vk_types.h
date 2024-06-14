@@ -96,10 +96,6 @@ struct GPUSceneDataMultiDraw {
 	glm::vec4 cameraPosition;
 };
 
-struct MultiDrawBuffers {
-	AllocatedBuffer indirectDrawBuffer;
-	uint32_t instanceCount;
-};
 
 // Material Structure
 enum class MaterialPass :uint8_t {

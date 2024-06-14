@@ -19,7 +19,6 @@
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
-struct MeshAsset;
 struct LoadedGLTFMultiDraw;
 struct GLTFMetallic_RoughnessMultiDraw;
 
@@ -48,14 +47,14 @@ struct ComputePushConstants {
 	glm::vec4 data4;
 };
 
-struct GPUSceneData {
-	glm::mat4 view;
-	glm::mat4 proj;
-	glm::mat4 viewproj;
-	glm::vec4 ambientColor;
-	glm::vec4 sunlightDirection; // w for sun power
-	glm::vec4 sunlightColor;
-};
+//struct GPUSceneData {
+//	glm::mat4 view;
+//	glm::mat4 proj;
+//	glm::mat4 viewproj;
+//	glm::vec4 ambientColor;
+//	glm::vec4 sunlightDirection; // w for sun power
+//	glm::vec4 sunlightColor;
+//};
 
 struct ComputeEffect {
 	const char* name;
@@ -200,10 +199,6 @@ public:
 	VkDescriptorSetLayout textureDescriptorSetLayout;
 	VkDescriptorSetLayout computeCullingDescriptorSetLayout;
 
-	GPUSceneData sceneData;
-	VkDescriptorSetLayout gpuSceneDataDescriptorBufferSetLayout;
-	DescriptorBufferUniform gpuSceneDataDescriptorBuffer;
-	AllocatedBuffer gpuSceneDataBuffer;
 	float globalModelScale{ 1.0f };
 	std::unordered_map<std::string, std::shared_ptr<LoadedGLTFMultiDraw>> loadedMultiDrawScenes;
 	void update_scene();

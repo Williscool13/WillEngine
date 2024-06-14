@@ -5,13 +5,21 @@
 #include "vk_engine.h"
 #include "vk_descriptor_buffer.h"
 #include "vk_loader.h"
+struct VmaAllocation_T;
 
 class VulkanEngine;
 struct LoadedGLTFMultiDraw;
 
+struct MultiDrawBuffers {
+	AllocatedBuffer indirectDrawBuffer;
+	uint32_t instanceCount;
+};
+
 struct GLTFMetallic_RoughnessMultiDraw {
 	bool hasTransparents() const;
 	bool hasOpaques() const;
+
+	std::shared_ptr<LoadedGLTFMultiDraw> scene_ptr;
 
 	std::shared_ptr<ShaderObject> shaderObject;
 	// holds indirect draw buffers. Transparent will not go through compute culling.
@@ -54,10 +62,12 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	// store offsets of vertices
 	std::vector<uint32_t> vertexOffsets;
 
-	void build_buffers(VulkanEngine* engine, LoadedGLTFMultiDraw& scene);
+	void load_gltf(VulkanEngine* engine, std::string& pathToScene);
+	void build_buffers(VulkanEngine* engine);
 	void recursive_node_process(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix);
 	void recursive_node_process_instance_data(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix, int& current_model_index);
-	void update_model_matrix(LoadedGLTFMultiDraw& scene, glm::mat4& topMatrix);
+	void update_draw_data(GPUSceneDataMultiDraw& sceneData, glm::mat4& model_matrix);
+	void update_model_matrix(glm::mat4& topMatrix);
 
 	bool buffersBuilt{ false };
 
