@@ -212,5 +212,8 @@
     <None Include="shaders\include\environment_include.glsl">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\include\indirect_input_structures.glsl">
+      <Filter>shaders\include</Filter>
+    </None>
   </ItemGroup>
 </Project>

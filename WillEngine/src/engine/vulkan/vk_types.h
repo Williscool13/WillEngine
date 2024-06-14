@@ -41,7 +41,7 @@ struct RawMeshData {
 	bool hasTransparent = false;
 };
 
-// Processed Mesh Data
+// Processed Mesh Data (not passed to GPU)
 struct MeshData {
 	std::vector<uint32_t> indices;
 	uint32_t index_buffer_offset = 0;
@@ -54,17 +54,17 @@ struct InstanceData {
 	uint32_t vertexOffset; 
 	// slight data redundancy here, since this value will be the same for each instance that uses the same mesh
 	// significantly better than duplicating vertices in the vertex buffer
-	uint32_t vertexCount;
 	uint32_t indexCount;
 	uint32_t meshIndex;
+	float padding;
 };
 
 // Per material data
 struct MaterialData {
 	glm::vec4 color_factor;
 	glm::vec4 metal_rough_factors;
-	glm::vec4 texture_image_indices;
-	glm::vec4 texture_sampler_indices;
+	glm::vec4 texture_image_indices;   // x: base color, y: metallic roughness, z: pad, w: pad
+	glm::vec4 texture_sampler_indices; // x: base color, y: metallic roughness, z: pad, w: pad
 	glm::vec4 alphaCutoff; // x: alpha cutoff, y: alpha mode, z: padding, w: padding
 };
 

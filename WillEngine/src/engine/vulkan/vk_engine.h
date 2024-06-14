@@ -101,7 +101,6 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	AllocatedBuffer materialBuffer;
 	AllocatedBuffer instanceBuffer; 
 	// access correct instance data w/ gl_instanceID. 
-	//  IMPORTANT: WHEN DEFINING VkDrawIndexedIndirectCommand, MAKE SURE FIRST_INSTANCE IS THE INDEX OF THE INSTANCE DATA
 	
 	// BINDING 1: SCENE DATA
 	DescriptorBufferUniform scene_data;

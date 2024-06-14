@@ -199,6 +199,7 @@ compile_shaders.sh</Command>
     <None Include="shaders\gpu_cull.comp" />
     <None Include="shaders\gradient_color.comp" />
     <None Include="shaders\include\environment_include.glsl" />
+    <None Include="shaders\include\indirect_input_structures.glsl" />
     <None Include="shaders\include\input_structures.glsl" />
     <None Include="shaders\mesh.frag" />
     <None Include="shaders\mesh.vert" />

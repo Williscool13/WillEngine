@@ -1021,7 +1021,6 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	if (ENABLE_FRAME_STATISTICS) {
 		for (int i = 0; i < multiDrawPipeline.instanceData.size(); i++) {
 			stats.triangle_count += multiDrawPipeline.instanceData[i].indexCount / 3;
-			stats.vertex_count += multiDrawPipeline.instanceData[i].vertexCount;
 			stats.drawcall_count++;
 		}
 	}
@@ -1534,7 +1533,19 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine, Loaded
 
 		BoundingSphere bounds = BoundingSphere(r);
 		meshBoundingSpheres.push_back(bounds);
+
+
+		MeshData mdata{};
+		mdata.index_buffer_offset = static_cast<uint32_t>(index_buffer_size);
+		mdata.indices = r.indices;
+		index_buffer_size += r.indices.size() * sizeof(r.indices[0]);
+		assert(r.indices.size() % 3 == 0);
+		mdata.transparent = r.hasTransparent;
+
+		meshData.push_back(mdata);
 	}
+
+	
 
 	glm::mat4 mMatrix = glm::mat4(1.0f);
 	for (auto& n : scene.topNodes) {
@@ -1588,12 +1599,11 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine, Loaded
 
 		AllocatedBuffer staging_vertex = engine->create_staging_buffer(allVertices.size() * sizeof(MultiDrawVertex));
 		AllocatedBuffer staging_index = engine->create_staging_buffer(index_buffer_size);
-		AllocatedBuffer staging_material = engine->create_staging_buffer(meshData.size() * sizeof(MaterialData));
+		AllocatedBuffer staging_material = engine->create_staging_buffer(scene.materials.size() * sizeof(MaterialData));
 
 		memcpy(staging_vertex.info.pMappedData, allVertices.data(), allVertices.size() * sizeof(MultiDrawVertex));
-		//memcpy(staging_instance.info.pMappedData, instanceData.data(), instanceData.size() * sizeof(InstanceData));
 		for (size_t i = 0; i < number_of_instances; i++) {
-			MeshData& d = meshData[i];
+			MeshData& d = meshData[instanceData[i].meshIndex];
 			memcpy(
 				(char*)staging_index.info.pMappedData + d.index_buffer_offset
 				, d.indices.data()
@@ -1628,13 +1638,13 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine, Loaded
 		std::vector<VkDrawIndexedIndirectCommand> cpu_commands;
 		size_t opaque_command_count = 0;
 		for (size_t i = 0; i < number_of_instances; ++i) {
-			MeshData& md = meshData[i];
+			MeshData& md = meshData[instanceData[i].meshIndex];
 			if (md.transparent) { continue; }
 			opaque_command_count++;
 
 			VkDrawIndexedIndirectCommand cmd{};
-			cmd.firstIndex = meshData[i].index_buffer_offset / (sizeof(meshData[i].indices[0]));
-			cmd.indexCount = static_cast<uint32_t>(meshData[i].indices.size());
+			cmd.firstIndex = md.index_buffer_offset / (sizeof(md.indices[0]));
+			cmd.indexCount = static_cast<uint32_t>(md.indices.size());
 			cmd.vertexOffset = static_cast<uint32_t>(0); // supplied by instance data
 			cmd.firstInstance = static_cast<uint32_t>(i);
 			cmd.instanceCount = 1;
@@ -1657,13 +1667,13 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine, Loaded
 		std::vector<VkDrawIndexedIndirectCommand> cpu_commands_transparent;
 		size_t transparent_command_count = 0;
 		for (size_t i = 0; i < number_of_instances; ++i) {
-			MeshData& md = meshData[i];
+			MeshData& md = meshData[instanceData[i].meshIndex];
 			if (!md.transparent) { continue; }
 			transparent_command_count++;
 
 			VkDrawIndexedIndirectCommand cmd{};
-			cmd.firstIndex = meshData[i].index_buffer_offset / (sizeof(meshData[i].indices[0]));
-			cmd.indexCount = static_cast<uint32_t>(meshData[i].indices.size());
+			cmd.firstIndex = md.index_buffer_offset / (sizeof(md.indices[0]));
+			cmd.indexCount = static_cast<uint32_t>(md.indices.size());
 			cmd.vertexOffset = static_cast<uint32_t>(0);// supplied by instance data
 			cmd.firstInstance = static_cast<uint32_t>(i);
 			cmd.instanceCount = 1;
@@ -1755,23 +1765,15 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine, Loaded
 void GLTFMetallic_RoughnessMultiDraw::recursive_node_process(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix)
 {
 	if (MeshNodeMultiDraw* meshNode = dynamic_cast<MeshNodeMultiDraw*>(&node)) {
-		RawMeshData& d = scene.meshes[meshNode->meshIndex];
-		MeshData mdata;
-		mdata.index_buffer_offset = static_cast<uint32_t>(index_buffer_size);
-		mdata.indices = d.indices;
-		index_buffer_size += d.indices.size() * sizeof(d.indices[0]);
-		assert(d.indices.size() % 3 == 0);
-		mdata.transparent = d.hasTransparent;
+		MeshData& d = meshData[meshNode->meshIndex];
 
 		meshNode->instanceIndex = static_cast<uint32_t>(instanceData.size());
 		InstanceData instance{};
 		instance.modelMatrix = topMatrix * meshNode->worldTransform;
 		instance.vertexOffset = vertexOffsets[meshNode->meshIndex];
 		instance.indexCount = static_cast<uint32_t>(d.indices.size());
-		instance.vertexCount = static_cast<uint32_t>(d.vertices.size());
 		instance.meshIndex = meshNode->meshIndex;
 		instanceData.push_back(instance);
-		meshData.push_back(mdata);
 	}
 
 	for (auto& child : node.children) {
@@ -1785,7 +1787,6 @@ void GLTFMetallic_RoughnessMultiDraw::recursive_node_process_instance_data(Loade
 		instanceData[current_model_index].modelMatrix = topMatrix * meshNode->worldTransform;
 		instanceData[current_model_index].vertexOffset = vertexOffsets[meshNode->meshIndex];
 		instanceData[current_model_index].indexCount = static_cast<uint32_t>(d.indices.size());
-		instanceData[current_model_index].vertexCount = static_cast<uint32_t>(d.vertices.size());
 		current_model_index++;
 		// Order doesnt particularly matter, though it should be same order as during initial setup
 	}
