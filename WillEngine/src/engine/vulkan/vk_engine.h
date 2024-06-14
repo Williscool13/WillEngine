@@ -12,13 +12,16 @@
 #include <vk_initializers.h>
 #include <vk_images.h>
 #include <vk_pipelines.h>
+#include "vk_draw_structure.h"
+
 #include <camera.h>
+
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
 struct MeshAsset;
 struct LoadedGLTFMultiDraw;
-class VulkanEngine;
+struct GLTFMetallic_RoughnessMultiDraw;
 
 struct DeletionQueue
 {
@@ -83,58 +86,7 @@ struct EngineStats {
 	RollingAverage mesh_draw_time{ 500 };
 };
 
-struct GLTFMetallic_RoughnessMultiDraw {
-	VulkanEngine* engine;
 
-	std::shared_ptr<ShaderObject> shaderObject;
-	// holds indirect draw buffers. Transparent will not go through compute culling.
-
-	VkPipelineLayout layout;
-	
-
-	AllocatedBuffer indexBuffer;
-
-	// BINDING 0: BUFFER ADDRESSES
-	DescriptorBufferUniform buffer_addresses;
-	AllocatedBuffer buffer_addresses_underlying;
-	AllocatedBuffer vertexBuffer;
-	AllocatedBuffer materialBuffer;
-	AllocatedBuffer instanceBuffer; 
-	// access correct instance data w/ gl_instanceID. 
-	
-	// BINDING 1: SCENE DATA
-	DescriptorBufferUniform scene_data;
-	AllocatedBuffer sceneDataBuffer;
-	// BINDING 2: TEXTURE DATA
-	//	when initializing, set descriptor count to be equal to the number of textures
-	DescriptorBufferSampler texture_data;
-
-	// BINDING 3: INDIRECT DRAW BUFFER
-	DescriptorBufferUniform compute_culling_data_buffer_address;
-	AllocatedBuffer indirect_draw_buffer_underlying;
-	MultiDrawBuffers opaqueDrawBuffers;
-	MultiDrawBuffers transparentDrawBuffers;
-	AllocatedBuffer boundingSphereBuffer;
-
-	void build_pipelines(VulkanEngine* engine);
-
-
-	// buffer building
-	size_t index_buffer_size = 0;
-	size_t number_of_instances = 0;
-	std::vector<InstanceData> instanceData;
-	std::vector<MeshData> meshData;
-	// store offsets of vertices
-	std::vector<uint32_t> vertexOffsets;
-
-	void build_buffers(VulkanEngine* engine, LoadedGLTFMultiDraw& scene);
-	void recursive_node_process(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix);
-	void recursive_node_process_instance_data(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix, int& current_model_index);
-	void update_model_matrix(LoadedGLTFMultiDraw& scene, glm::mat4& topMatrix);
-
-	bool buffersBuilt{ false };
-	void destroy(VkDevice device, VmaAllocator allocator);
-};
 
 class VulkanEngine {
 public:
@@ -242,7 +194,7 @@ public:
 	void destroy_image(const AllocatedImage& img);
 
 	// Material Pipeline
-	GLTFMetallic_RoughnessMultiDraw multiDrawPipeline;
+	std::shared_ptr<GLTFMetallic_RoughnessMultiDraw> multiDrawPipeline;
 	VkDescriptorSetLayout bufferAddressesDescriptorSetLayout;
 	VkDescriptorSetLayout sceneDataDescriptorSetLayout;
 	VkDescriptorSetLayout textureDescriptorSetLayout;

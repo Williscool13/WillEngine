@@ -124,6 +124,9 @@
     <ClCompile Include="include\volk\volk.c">
       <Filter>libraries\volk</Filter>
     </ClCompile>
+    <ClCompile Include="src\engine\vulkan\vk_draw_structure.cpp">
+      <Filter>engine\vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\engine\core\acceleration_structures.h">
@@ -167,6 +170,9 @@
     </ClInclude>
     <ClInclude Include="src\engine\utils\utils.h">
       <Filter>engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\vulkan\vk_draw_structure.h">
+      <Filter>engine\vulkan</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
