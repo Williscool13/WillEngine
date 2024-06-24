@@ -102,7 +102,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>D:\VulkanSDK\1.3.283.0\Include;src\engine;src\engine\core;src\engine\vulkan;src\engine\utils;include</AdditionalIncludeDirectories>
@@ -125,7 +125,7 @@ compile_shaders.sh</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>D:\VulkanSDK\1.3.283.0\Include;src\engine;src\engine\core;src\engine\vulkan;src\engine\utils;include</AdditionalIncludeDirectories>
@@ -200,6 +200,12 @@ compile_shaders.sh</Command>
     <None Include="compile_shaders.sh" />
     <None Include="shaders\environment.frag" />
     <None Include="shaders\environment.vert" />
+    <None Include="shaders\environment\brdflut.comp" />
+    <None Include="shaders\environment\cubetodiffirra.comp" />
+    <None Include="shaders\environment\cubetospecprefilter.comp" />
+    <None Include="shaders\environment\environment.frag" />
+    <None Include="shaders\environment\environment.vert" />
+    <None Include="shaders\environment\equitoface.comp" />
     <None Include="shaders\fullscreen.frag" />
     <None Include="shaders\fullscreen.vert" />
     <None Include="shaders\gpu_cull.comp" />
@@ -209,8 +215,8 @@ compile_shaders.sh</Command>
     <None Include="shaders\include\input_structures.glsl" />
     <None Include="shaders\mesh.frag" />
     <None Include="shaders\mesh.vert" />
-    <None Include="shaders\meshIndirect.frag" />
-    <None Include="shaders\meshIndirect.vert" />
+    <None Include="shaders\pbr.frag" />
+    <None Include="shaders\pbr.vert" />
     <None Include="shaders\sky.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

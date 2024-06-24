@@ -14,6 +14,7 @@
 #include <vk_pipelines.h>
 #include "vk_draw_structure.h"
 #include <vk_constructors.h>
+#include <vk_environment_map.h>
 
 #include <camera.h>
 
@@ -23,6 +24,7 @@ constexpr unsigned int FRAME_OVERLAP = 2;
 struct LoadedGLTFMultiDraw;
 struct GLTFMetallic_RoughnessMultiDraw;
 class VulkanResourceConstructor;
+class EnvironmentMap;
 
 struct DeletionQueue
 {
@@ -69,7 +71,7 @@ struct FrameData {
 };
 
 struct EngineStats {
-	
+
 	int triangle_count;
 	int vertex_count;
 	int drawcall_count;
@@ -85,7 +87,7 @@ public:
 
 
 	bool _isInitialized{ false };
-	int _frameNumber {0};
+	int _frameNumber{ 0 };
 	bool stop_rendering{ false };
 	bool resize_requested{ false };
 
@@ -104,7 +106,28 @@ public:
 	VkDevice _device;
 	VkSurfaceKHR _surface;
 	VmaAllocator _allocator;
+	VkQueue _graphicsQueue;
+	uint32_t _graphicsQueueFamily;
+
 	std::shared_ptr<VulkanResourceConstructor> _resourceConstructor;
+	std::shared_ptr<EnvironmentMap> _environmentMap;
+
+	// Swapchain
+	VkSwapchainKHR _swapchain;
+	VkFormat _swapchainImageFormat;
+	std::vector<VkImage> _swapchainImages;
+	std::vector<VkImageView> _swapchainImageViews;
+	VkExtent2D _swapchainExtent;
+
+	FrameData _frames[FRAME_OVERLAP];
+	FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; };
+
+	// immediate submit structures
+	VkFence _immFence;
+	VkCommandBuffer _immCommandBuffer;
+	VkCommandPool _immCommandPool;
+	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+
 
 	// Global Lifetime Deletion Queue
 	DeletionQueue _mainDeletionQueue;
@@ -117,19 +140,8 @@ public:
 	float _renderScale{ 1.0f };
 	float _maxRenderScale{ 1.0f };
 
-	// Swapchain
-	VkSwapchainKHR _swapchain;
-	VkFormat _swapchainImageFormat;
-	std::vector<VkImage> _swapchainImages;
-	std::vector<VkImageView> _swapchainImageViews;
-	VkExtent2D _swapchainExtent;
 
-	// Graphics Queue Family
-	FrameData _frames[FRAME_OVERLAP];
-	FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; };
-	VkQueue _graphicsQueue;
-	uint32_t _graphicsQueueFamily;
-
+#pragma region Unused Pipelines
 	// Background Pipeline (Compute)
 	VkPipelineLayout _backgroundEffectPipelineLayout;
 	std::vector<ComputeEffect> backgroundEffects;
@@ -142,38 +154,16 @@ public:
 	VkDescriptorSetLayout _fullscreenDescriptorSetLayout;
 	DescriptorBufferSampler _fullscreenDescriptorBuffer;
 	ShaderObject _fullscreenPipeline;
-
-	// Compute Culling Pipeline
-	VkPipelineLayout _computeCullingPipelineLayout;
-	VkPipeline _computeCullingPipeline;
-
+#pragma endregion
 
 	void init();
 	void cleanup();
-	void draw_background(VkCommandBuffer cmd);
-	void draw_fullscreen(VkCommandBuffer cmd, AllocatedImage sourceImage,  AllocatedImage targetImage);
-	void draw_geometry(VkCommandBuffer cmd);
-	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	void draw();
 	void run();
 
 
 	void resize_swapchain();
 
-	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-	AllocatedBuffer create_staging_buffer(size_t allocSize);
-	void copy_buffer(AllocatedBuffer src, AllocatedBuffer dst, VkDeviceSize size);
-	VkDeviceAddress get_buffer_address(AllocatedBuffer buffer);
-
-	void destroy_buffer(const AllocatedBuffer& buffer);
-
-
-	// immediate submit structures
-	VkFence _immFence;
-	VkCommandBuffer _immCommandBuffer;
-	VkCommandPool _immCommandPool;
-	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
-	
 	// Textures
 	AllocatedImage _whiteImage;
 	AllocatedImage _blackImage;
@@ -181,11 +171,6 @@ public:
 	AllocatedImage _errorCheckerboardImage;
 	VkSampler _defaultSamplerLinear;
 	VkSampler _defaultSamplerNearest;
-	AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-	AllocatedImage create_image(void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-	AllocatedImage create_cubemap_image(std::vector<void*> data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-	int get_channel_count(VkFormat format);
-	void destroy_image(const AllocatedImage& img);
 
 	// Material Pipeline
 	std::shared_ptr<GLTFMetallic_RoughnessMultiDraw> multiDrawPipeline;
@@ -197,11 +182,19 @@ public:
 	VkDescriptorSetLayout singleUniformDescriptorSetLayout;
 	AllocatedBuffer _sceneDataBuffer;
 	DescriptorBufferUniform _sceneDataDescriptorBuffer;
+	AllocatedBuffer _environmentMapSceneDataBuffer;
+	DescriptorBufferUniform _environmentMapSceneDataDescriptorBuffer;
+
+	VkPipelineLayout _environmentPipelineLayout;
+	ShaderObject _environmentPipeline;
+
+
 
 	// getters
 	VkDescriptorSetLayout get_scene_data_descriptor_set_layout() const { return singleUniformDescriptorSetLayout; }
 	DescriptorBufferUniform get_scene_data_descriptor_buffer() const { return _sceneDataDescriptorBuffer; }
 
+	EnvironmentMap* get_current_environment_map() { return _environmentMap.get(); }
 private:
 	void init_vulkan();
 	void init_swapchain();
@@ -211,6 +204,7 @@ private:
 	void init_dearimgui();
 
 	void init_pipelines();
+	void init_environment_pipeline();
 	void init_compute_pipelines();
 	void init_fullscreen_pipeline();
 	void init_default_data();
@@ -219,4 +213,13 @@ private:
 	void create_draw_images(uint32_t width, uint32_t height);
 	void destroy_swapchain();
 	void destroy_draw_iamges();
+
+
+	void cull_geometry(VkCommandBuffer cmd);
+
+	void draw_background(VkCommandBuffer cmd);
+	void draw_fullscreen(VkCommandBuffer cmd, AllocatedImage sourceImage, AllocatedImage targetImage);
+	void draw_geometry(VkCommandBuffer cmd);
+	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
+	void draw_environment(VkCommandBuffer cmd);
 };

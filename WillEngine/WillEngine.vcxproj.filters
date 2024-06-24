@@ -38,6 +38,9 @@
     <Filter Include="libraries\volk">
       <UniqueIdentifier>{ed0e98eb-e9a9-4d2b-aa18-c1148e2a7f8a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="shaders\environment">
+      <UniqueIdentifier>{3de749b1-e2cd-4bc8-8f30-1ed6308a8170}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\fastgltf\fastgltf.cpp">
@@ -212,10 +215,10 @@
     <None Include="shaders\fullscreen.vert">
       <Filter>shaders</Filter>
     </None>
-    <None Include="shaders\meshIndirect.frag">
+    <None Include="shaders\pbr.frag">
       <Filter>shaders</Filter>
     </None>
-    <None Include="shaders\meshIndirect.vert">
+    <None Include="shaders\pbr.vert">
       <Filter>shaders</Filter>
     </None>
     <None Include="shaders\gpu_cull.comp">
@@ -232,6 +235,24 @@
     </None>
     <None Include="shaders\include\indirect_input_structures.glsl">
       <Filter>shaders\include</Filter>
+    </None>
+    <None Include="shaders\environment\environment.vert">
+      <Filter>shaders\environment</Filter>
+    </None>
+    <None Include="shaders\environment\equitoface.comp">
+      <Filter>shaders\environment</Filter>
+    </None>
+    <None Include="shaders\environment\brdflut.comp">
+      <Filter>shaders\environment</Filter>
+    </None>
+    <None Include="shaders\environment\cubetodiffirra.comp">
+      <Filter>shaders\environment</Filter>
+    </None>
+    <None Include="shaders\environment\cubetospecprefilter.comp">
+      <Filter>shaders\environment</Filter>
+    </None>
+    <None Include="shaders\environment\environment.frag">
+      <Filter>shaders\environment</Filter>
     </None>
   </ItemGroup>
 </Project>

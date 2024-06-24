@@ -16,6 +16,8 @@ public:
 
     void processSDLEvent(bool inFocus);
 
+    glm::vec3 getViewDirection() const;
+
     void update();
 };
 

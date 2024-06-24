@@ -3,7 +3,7 @@
 
 const VkExtent3D EnvironmentMap::specularPrefilteredBaseExtents = { 512, 512, 1 };
 const VkExtent3D EnvironmentMap::lutImageExtent = { 512, 512, 1 };
-const char* EnvironmentMap::defaultEquiPath = "src_images/dam_bridge_4k.hdr";
+const char* EnvironmentMap::defaultEquiPath = "assets\\environments\\meadow_4k.hdr";
 
 int EnvironmentMap::useCount = 0;
 VkDescriptorSetLayout EnvironmentMap::_equiImageDescriptorSetLayout = VK_NULL_HANDLE;
@@ -27,7 +27,7 @@ AllocatedImage EnvironmentMap::_lutImage = {};
 bool EnvironmentMap::layoutsCreated = false;
 
 
-EnvironmentMap::EnvironmentMap(MainEngine* creator, const char* path)
+EnvironmentMap::EnvironmentMap(VulkanEngine* creator, const char* path)
 {
 	_creator = creator;
 	_device = creator->_device;
@@ -112,7 +112,7 @@ EnvironmentMap::EnvironmentMap(MainEngine* creator, const char* path)
 
 
 			VkShaderModule computeShader;
-			if (!vkutil::load_shader_module("shaders/equitoface.comp.spv", _device, &computeShader)) {
+			if (!vkutil::load_shader_module("shaders/environment/equitoface.comp.spv", _device, &computeShader)) {
 				fmt::print("Error when building the compute shader (equitoface.comp.spv)\n"); abort();
 			}
 
@@ -154,7 +154,7 @@ EnvironmentMap::EnvironmentMap(MainEngine* creator, const char* path)
 			VK_CHECK(vkCreatePipelineLayout(_device, &layout_info, nullptr, &_cubemapToDiffusePipelineLayout));
 
 			VkShaderModule computeShader;
-			if (!vkutil::load_shader_module("shaders/cubetodiffspec.comp.spv", _device, &computeShader)) {
+			if (!vkutil::load_shader_module("shaders/environment/cubetodiffirra.comp.spv", _device, &computeShader)) {
 				fmt::print("Error when building the compute shader (cubetodiffspec.comp.spv)\n"); abort();
 			}
 
@@ -196,7 +196,7 @@ EnvironmentMap::EnvironmentMap(MainEngine* creator, const char* path)
 			VK_CHECK(vkCreatePipelineLayout(_device, &layout_info, nullptr, &_cubemapToSpecularPipelineLayout));
 
 			VkShaderModule computeShader;
-			if (!vkutil::load_shader_module("shaders/cubetospecprefilter.comp.spv", _device, &computeShader)) {
+			if (!vkutil::load_shader_module("shaders/environment/cubetospecprefilter.comp.spv", _device, &computeShader)) {
 				fmt::print("Error when building the compute shader (cubetospecprefilter.comp.spv)\n"); abort();
 			}
 
@@ -233,7 +233,7 @@ EnvironmentMap::EnvironmentMap(MainEngine* creator, const char* path)
 			VK_CHECK(vkCreatePipelineLayout(_device, &layout_info, nullptr, &_lutPipelineLayout));
 
 			VkShaderModule computeShader;
-			if (!vkutil::load_shader_module("shaders/brdflut.comp.spv", _device, &computeShader)) {
+			if (!vkutil::load_shader_module("shaders/environment/brdflut.comp.spv", _device, &computeShader)) {
 				fmt::print("Error when building the compute shader (brdflut.comp.spv)\n"); abort();
 			}
 
@@ -382,7 +382,7 @@ bool EnvironmentMap::load_equirectangular_image(const char* path, bool firstTime
 	int width, height, channels;
 	float* data = stbi_loadf(path, &width, &height, &channels, 4);
 	if (data) {
-		fmt::print("Loaded Equirectangular Image \"{}\": {}x{}x{}\n", path, width, height, channels);
+		fmt::print("Loaded Equirectangular Image \"{}\"({}x{}x{})\n", path, width, height, channels);
 		if (!firstTimeSetup) { _creator->_resourceConstructor->destroy_image(_equiImage); }
 		_equiImage = _creator->_resourceConstructor->create_image(data, width * height * 4 * sizeof(float), VkExtent3D{ (uint32_t)width, (uint32_t)height, 1 }, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 		stbi_image_free(data);
@@ -455,10 +455,9 @@ void EnvironmentMap::load_cubemap(bool firstTimeSetup)
 		_cubemapStorageDescriptorBuffer.free_descriptor_buffer(0);
 	}
 
-
 	auto end0 = std::chrono::system_clock::now();
 	auto elapsed0 = std::chrono::duration_cast<std::chrono::microseconds>(end0 - start);
-	fmt::print("Cubemap Created in {} seconds\n", elapsed0.count() / 1000000.0f);
+	fmt::print("Cubemap: {}ms | ", elapsed0.count() / 1000.0f);
 
 
 	{
@@ -533,11 +532,12 @@ void EnvironmentMap::load_cubemap(bool firstTimeSetup)
 
 	auto end1 = std::chrono::system_clock::now();
 	auto elapsed1 = std::chrono::duration_cast<std::chrono::microseconds>(end1 - end0);
-	fmt::print("Specular and Diffuse Maps Created in: {} seconds\n", elapsed1.count() / 1000000.0f);
+	fmt::print("Diff/Spec Maps {}ms | ", elapsed1.count() / 1000.0f);
 
 	auto end3 = std::chrono::system_clock::now();
 	auto elapsed3 = std::chrono::duration_cast<std::chrono::microseconds>(end3 - start);
-	fmt::print("Total Cubemap Load Time: {} seconds\n", elapsed3.count() / 1000000.0f);
+
+	fmt::print("Total Time {}ms\n", elapsed3.count() / 1000.0f);
 }
 
 void EnvironmentMap::save_cubemap_image(const char* path)
@@ -684,8 +684,6 @@ void EnvironmentMap::cubemap_to_difffuse_specular_immediate(AllocatedCubemap& cu
 {
 	_creator->immediate_submit([&](VkCommandBuffer cmd) {
 
-		auto start = std::chrono::system_clock::now();
-
 		vkutil::transition_image(cmd, cubemapMips.allocatedImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 
@@ -720,11 +718,6 @@ void EnvironmentMap::cubemap_to_difffuse_specular_immediate(AllocatedCubemap& cu
 		}
 
 
-
-		auto end0 = std::chrono::system_clock::now();
-		auto elapsed0 = std::chrono::duration_cast<std::chrono::microseconds>(end0 - start);
-		fmt::print("Diffuse Irradiance Map Created in {} seconds\n", elapsed0.count() / 1000000.0f);
-
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _cubemapToSpecularPipeline);
 		vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptor_buffer_binding_info);
 		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _cubemapToSpecularPipelineLayout, 0, 1, &cubemap_index, &zero_offset);
@@ -752,11 +745,6 @@ void EnvironmentMap::cubemap_to_difffuse_specular_immediate(AllocatedCubemap& cu
 
 
 		vkutil::transition_image(cmd, cubemapMips.allocatedImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-		auto end1 = std::chrono::system_clock::now();
-		auto elapsed1 = std::chrono::duration_cast<std::chrono::microseconds>(end1 - end0);
-		fmt::print("Diffuse Irradiance Map Created in {} seconds\n", elapsed1.count() / 1000000.0f);
-
 		});
 }
 

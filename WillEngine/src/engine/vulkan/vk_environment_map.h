@@ -18,6 +18,22 @@ struct EquiToCubePushConstantData {
 	float pad3;
 };
 
+struct CubeToDiffusePushConstantData {
+	float sampleDelta;
+	float pad;
+	float pad2;
+	float pad3;
+};
+
+struct CubeToPrefilteredConstantData {
+	float roughness;
+	uint32_t imageWidth;
+	uint32_t imageHeight;
+	uint32_t sampleCount;
+};
+
+
+
 class EnvironmentMap {
 public:
 	static const int specularPrefilteredMipLevels{ 10 };

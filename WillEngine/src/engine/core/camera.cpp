@@ -35,6 +35,15 @@ void Camera::processSDLEvent(bool inFocus)
     pitch = glm::clamp(pitch, -glm::half_pi<float>(), glm::half_pi<float>());
 }
 
+glm::vec3 Camera::getViewDirection() const
+{
+    glm::quat pitchRotation = glm::angleAxis(pitch, glm::vec3{ -1.f, 0.f, 0.f });
+	glm::quat yawRotation = glm::angleAxis(yaw, glm::vec3{ 0.f, -1.f, 0.f });
+
+	glm::quat rotation = yawRotation * pitchRotation;
+	return rotation * glm::vec3{ 0.f, 0.f, -1.f };
+}
+
 glm::mat4 Camera::getViewMatrix() const
 {
     // to create a correct model view, we need to move the world in opposite

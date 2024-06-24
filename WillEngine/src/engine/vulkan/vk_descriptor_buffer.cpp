@@ -9,7 +9,7 @@ DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device
 {
 	// Get Descriptor Buffer Properties
 	if (!device_properties_retrieved) {
-		fmt::print("Retrieving Descriptor Buffer Properties\n");
+		fmt::print("Descriptor Buffer: Doing First Time Setup\n");
 		VkPhysicalDeviceProperties2KHR device_properties{};
 		descriptor_buffer_properties = {};
 		descriptor_buffer_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;

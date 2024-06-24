@@ -83,7 +83,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 							imagesize.height = 1;
 							imagesize.depth = 1;
 							unsigned char data[4] = { 255, 0, 255, 1 };
-							newImage = engine->create_image(data, 4, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+							newImage = engine->_resourceConstructor->create_image(data, 4, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
 						}
 						else {
 							unsigned char* data = (unsigned char*)ktxTexture_GetData(kTexture);
@@ -91,7 +91,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 							imageExtents.width = kTexture->baseWidth;
 							imageExtents.height = kTexture->baseHeight;
 							imageExtents.depth = 1;
-							newImage = engine->create_image(data, kTexture->dataSize, imageExtents, ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT, false);
+							newImage = engine->_resourceConstructor->create_image(data, kTexture->dataSize, imageExtents, ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT, false);
 						}
 						
 					}
@@ -106,7 +106,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 						imagesize.height = height;
 						imagesize.depth = 1;
 						size_t size = width * height * 4;
-						newImage = engine->create_image(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+						newImage = engine->_resourceConstructor->create_image(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
 
 						stbi_image_free(data);
 					}
@@ -123,7 +123,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 					imagesize.height = height;
 					imagesize.depth = 1;
 					size_t size = width * height * 4;
-					newImage = engine->create_image(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT,false);
+					newImage = engine->_resourceConstructor->create_image(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT,false);
 
 					stbi_image_free(data);
 				}
@@ -145,7 +145,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
 								imagesize.height = height;
 								imagesize.depth = 1;
 								size_t size = width * height * 4;
-								newImage = engine->create_image(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
+								newImage = engine->_resourceConstructor->create_image(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
 									VK_IMAGE_USAGE_SAMPLED_BIT,false);
 								stbi_image_free(data);
 							}
@@ -189,7 +189,8 @@ std::optional<std::vector<float*>> loadCubemapFaces(VulkanEngine* engine, std::s
 
 std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngine* engine, std::string_view filePath)
 {
-	fmt::print("Loading GLTF: {}\n", filePath);
+	fmt::print("Loading GLTF Model: {}\n", filePath);
+	auto start = std::chrono::system_clock::now();
 
 	std::shared_ptr<LoadedGLTFMultiDraw> scene = std::make_shared<LoadedGLTFMultiDraw>();
 	scene->creator = engine;
@@ -488,6 +489,11 @@ std::optional<std::shared_ptr<LoadedGLTFMultiDraw>> loadGltfMultiDraw(VulkanEngi
 		}
 	}
 
+
+	auto end0 = std::chrono::system_clock::now();
+	auto elapsed0 = std::chrono::duration_cast<std::chrono::microseconds>(end0 - start);
+	fmt::print("Total Time {}ms\n", elapsed0.count() / 1000.0f);
+
 	return scene;
 }
 
@@ -504,7 +510,7 @@ void LoadedGLTFMultiDraw::clearAll()
 			continue;
 		}
 
-		creator->destroy_image(image);
+		creator->_resourceConstructor->destroy_image(image);
 	}
 
 	for (auto& sampler : samplers) {
