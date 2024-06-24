@@ -1,72 +1,204 @@
 #include "vk_draw_structure.h"
 
+VkDescriptorSetLayout GLTFMetallic_RoughnessMultiDraw::bufferAddressesDescriptorSetLayout = VK_NULL_HANDLE;
+VkDescriptorSetLayout GLTFMetallic_RoughnessMultiDraw::textureDescriptorSetLayout = VK_NULL_HANDLE;
+VkDescriptorSetLayout GLTFMetallic_RoughnessMultiDraw::computeCullingDescriptorSetLayout = VK_NULL_HANDLE;
+VkPipelineLayout GLTFMetallic_RoughnessMultiDraw::_computeCullingPipelineLayout = VK_NULL_HANDLE;
+VkPipeline GLTFMetallic_RoughnessMultiDraw::_computeCullingPipeline = VK_NULL_HANDLE;
+bool GLTFMetallic_RoughnessMultiDraw::layoutsCreated = false;
+int GLTFMetallic_RoughnessMultiDraw::useCount = 0;
+
 bool GLTFMetallic_RoughnessMultiDraw::hasTransparents() const { return transparentDrawBuffers.instanceCount > 0; }
 
 bool GLTFMetallic_RoughnessMultiDraw::hasOpaques() const { return opaqueDrawBuffers.instanceCount > 0; }
 
-void GLTFMetallic_RoughnessMultiDraw::build_pipelines(VulkanEngine* engine, bool use_msaa, VkSampleCountFlagBits sample_count)
+GLTFMetallic_RoughnessMultiDraw::GLTFMetallic_RoughnessMultiDraw(VulkanEngine* engine, std::string& pathToScene, const char* vertShaderPath, const char* fragShaderPath, bool use_msaa, VkSampleCountFlagBits sample_count)
 {
+	creator = engine;
+	if (!layoutsCreated) {
+		{
+			DescriptorLayoutBuilder layoutBuilder;
+			layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			bufferAddressesDescriptorSetLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
+				, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+		}
+		{
+			DescriptorLayoutBuilder layoutBuilder;
+			layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_SAMPLER, 32); // I dont expect any models to have more than 32 samplers
+			layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 255); // 255 is upper limit of textures
+
+			textureDescriptorSetLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_FRAGMENT_BIT
+				, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+		}
+		{
+			DescriptorLayoutBuilder layoutBuilder;
+			layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			computeCullingDescriptorSetLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_COMPUTE_BIT
+				, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+		}
+
+		// Compute Cull Pipeline
+		{
+			VkDescriptorSetLayout layouts[] = {
+				bufferAddressesDescriptorSetLayout,
+				computeCullingDescriptorSetLayout,
+				engine->get_scene_data_descriptor_set_layout(),
+			};
+
+			VkPipelineLayoutCreateInfo computeCullingPipelineLayoutCreateInfo{};
+			computeCullingPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+			computeCullingPipelineLayoutCreateInfo.pNext = nullptr;
+			computeCullingPipelineLayoutCreateInfo.pSetLayouts = layouts;
+			computeCullingPipelineLayoutCreateInfo.setLayoutCount = 3;
+			computeCullingPipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
+			computeCullingPipelineLayoutCreateInfo.pushConstantRangeCount = 0;
+
+
+			VK_CHECK(vkCreatePipelineLayout(engine->_device, &computeCullingPipelineLayoutCreateInfo, nullptr, &_computeCullingPipelineLayout));
+
+			VkShaderModule computeShader;
+			if (!vkutil::load_shader_module("shaders/gpu_cull.comp.spv", engine->_device, &computeShader)) {
+				fmt::print("Error when building the compute shader (gpu_cull.comp.spv)\n"); abort();
+			}
+
+			VkPipelineShaderStageCreateInfo stageinfo{};
+			stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+			stageinfo.pNext = nullptr;
+			stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+			stageinfo.module = computeShader;
+			stageinfo.pName = "main"; // entry point in shader
+
+			VkComputePipelineCreateInfo computePipelineCreateInfo{};
+			computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+			computePipelineCreateInfo.pNext = nullptr;
+			computePipelineCreateInfo.layout = _computeCullingPipelineLayout;
+			computePipelineCreateInfo.stage = stageinfo;
+			computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+
+			VK_CHECK(vkCreateComputePipelines(engine->_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &_computeCullingPipeline));
+
+			vkDestroyShaderModule(engine->_device, computeShader, nullptr);
+		}
+
+		layoutsCreated = true;
+	}
+
 	buffer_addresses = DescriptorBufferUniform(engine->_instance, engine->_device
-		, engine->_physicalDevice, engine->_allocator, engine->bufferAddressesDescriptorSetLayout, 1);
-	scene_data = DescriptorBufferUniform(engine->_instance, engine->_device
-		, engine->_physicalDevice, engine->_allocator, engine->sceneDataDescriptorSetLayout, 1);
+		, engine->_physicalDevice, engine->_allocator, bufferAddressesDescriptorSetLayout, 1);
 	texture_data = DescriptorBufferSampler(engine->_instance, engine->_device
-		, engine->_physicalDevice, engine->_allocator, engine->textureDescriptorSetLayout, 2);
+		, engine->_physicalDevice, engine->_allocator, textureDescriptorSetLayout, 1);
 	compute_culling_data_buffer_address = DescriptorBufferUniform(engine->_instance, engine->_device
-		, engine->_physicalDevice, engine->_allocator, engine->computeCullingDescriptorSetLayout, 1);
+		, engine->_physicalDevice, engine->_allocator, computeCullingDescriptorSetLayout, 1)
+		;
+	assert(bufferAddressesDescriptorSetLayout != VK_NULL_HANDLE);
+	assert(textureDescriptorSetLayout != VK_NULL_HANDLE);
 
-	VkDescriptorSetLayout layouts[] = {
-		engine->bufferAddressesDescriptorSetLayout,
-		engine->sceneDataDescriptorSetLayout,
-		engine->textureDescriptorSetLayout,
-	};
+	// Render Pipeline
+	{
+		VkDescriptorSetLayout layouts[] = {
+			bufferAddressesDescriptorSetLayout,
+			textureDescriptorSetLayout,
+			engine->get_scene_data_descriptor_set_layout(),// sceneDataDescriptorSetLayout
+			// and environment map descriptor set layout
+		}; 
 
-	VkPipelineLayoutCreateInfo mesh_layout_info = vkinit::pipeline_layout_create_info();
-	mesh_layout_info.setLayoutCount = 3;
-	mesh_layout_info.pSetLayouts = layouts;
-	mesh_layout_info.pPushConstantRanges = nullptr;
-	mesh_layout_info.pushConstantRangeCount = 0;
+		VkPipelineLayoutCreateInfo mesh_layout_info = vkinit::pipeline_layout_create_info();
+		mesh_layout_info.setLayoutCount = 3;
+		mesh_layout_info.pSetLayouts = layouts;
+		mesh_layout_info.pPushConstantRanges = nullptr;
+		mesh_layout_info.pushConstantRangeCount = 0;
 
-	VkPipelineLayout newLayout;
-	VK_CHECK(vkCreatePipelineLayout(engine->_device, &mesh_layout_info, nullptr, &newLayout));
+		VkPipelineLayout newLayout;
+		VK_CHECK(vkCreatePipelineLayout(engine->_device, &mesh_layout_info, nullptr, &newLayout));
 
-	shaderObject = std::make_shared<ShaderObject>();
-	layout = newLayout;
+		shaderObject = std::make_shared<ShaderObject>();
+		renderPipelineLayout = newLayout;
 
 
-	shaderObject->init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-	shaderObject->init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-	if (use_msaa) {
-		shaderObject->enable_msaa(sample_count);
+		shaderObject->init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		shaderObject->init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+		if (use_msaa) {
+			shaderObject->enable_msaa(sample_count);
+		}
+		else {
+			shaderObject->disable_multisampling();
+		}
+		shaderObject->init_blending(ShaderObject::BlendMode::NO_BLEND);
+		shaderObject->enable_depthtesting(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+
+
+		shaderObject->_stages[0] = VK_SHADER_STAGE_VERTEX_BIT;
+		shaderObject->_stages[1] = VK_SHADER_STAGE_FRAGMENT_BIT;
+		shaderObject->_stages[2] = VK_SHADER_STAGE_GEOMETRY_BIT;
+
+
+		vkutil::create_shader_objects(
+			vertShaderPath, fragShaderPath
+			, engine->_device, shaderObject->_shaders
+			, 3, layouts
+			, 0, nullptr
+		);
 	}
-	else {
-		shaderObject->disable_multisampling();
-	}
-	shaderObject->init_blending(ShaderObject::BlendMode::NO_BLEND);
-	shaderObject->enable_depthtesting(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
-
-	shaderObject->_stages[0] = VK_SHADER_STAGE_VERTEX_BIT;
-	shaderObject->_stages[1] = VK_SHADER_STAGE_FRAGMENT_BIT;
-	shaderObject->_stages[2] = VK_SHADER_STAGE_GEOMETRY_BIT;
-
-
-	vkutil::create_shader_objects(
-		"shaders/meshIndirect.vert.spv", "shaders/meshIndirect.frag.spv"
-		, engine->_device, shaderObject->_shaders
-		, 3, layouts
-		, 0, nullptr
-	);
-}
-
-void GLTFMetallic_RoughnessMultiDraw::load_gltf(VulkanEngine* engine, std::string& pathToScene)
-{
+	
 	auto _scene = loadGltfMultiDraw(engine, pathToScene);
 	if (_scene == nullptr) {
 		fmt::print("Failed to load GLTF file\n");
 		return;
 	}
 	scene_ptr = *_scene;
+	
+	build_buffers(engine);
+
+	useCount++;
+
+
+}
+
+GLTFMetallic_RoughnessMultiDraw::~GLTFMetallic_RoughnessMultiDraw()
+{
+	useCount--;
+	if (useCount == 0) {
+		vkDestroyDescriptorSetLayout(creator->_device, bufferAddressesDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(creator->_device, textureDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(creator->_device, computeCullingDescriptorSetLayout, nullptr);
+
+		vkDestroyPipelineLayout(creator->_device, _computeCullingPipelineLayout, nullptr);
+		vkDestroyPipeline(creator->_device, _computeCullingPipeline, nullptr);
+
+		layoutsCreated = false;
+	}
+
+
+	buffer_addresses.destroy(creator->_device, creator->_allocator);
+	texture_data.destroy(creator->_device, creator->_allocator);
+	compute_culling_data_buffer_address.destroy(creator->_device, creator->_allocator);
+
+	vmaDestroyBuffer(creator->_allocator, vertexBuffer.buffer, vertexBuffer.allocation);
+	vmaDestroyBuffer(creator->_allocator, indexBuffer.buffer, indexBuffer.allocation);
+	vmaDestroyBuffer(creator->_allocator, instanceBuffer.buffer, instanceBuffer.allocation);
+	vmaDestroyBuffer(creator->_allocator, materialBuffer.buffer, materialBuffer.allocation);
+	vmaDestroyBuffer(creator->_allocator, buffer_addresses_underlying.buffer, buffer_addresses_underlying.allocation);
+
+	if (opaqueDrawBuffers.instanceCount > 0) {
+		vmaDestroyBuffer(creator->_allocator, opaqueDrawBuffers.indirectDrawBuffer.buffer, opaqueDrawBuffers.indirectDrawBuffer.allocation);
+	}
+	if (transparentDrawBuffers.instanceCount > 0) {
+		vmaDestroyBuffer(creator->_allocator, transparentDrawBuffers.indirectDrawBuffer.buffer, transparentDrawBuffers.indirectDrawBuffer.allocation);
+	}
+	vmaDestroyBuffer(creator->_allocator, indirect_draw_buffer_underlying.buffer, indirect_draw_buffer_underlying.allocation);
+	vmaDestroyBuffer(creator->_allocator, boundingSphereBuffer.buffer, boundingSphereBuffer.allocation);
+
+	vkDestroyPipelineLayout(creator->_device, renderPipelineLayout, nullptr);
+
+	// TODO: can probably make the shaders static too?
+	vkDestroyShaderEXT(creator->_device, shaderObject->_shaders[0], nullptr);
+	vkDestroyShaderEXT(creator->_device, shaderObject->_shaders[1], nullptr);
+
+	scene_ptr.reset();
+
+	fmt::print("Destroyed GLTFMetallic_RoughnessMultiDraw\n");
+
 }
 
 void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine)
@@ -99,43 +231,9 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine)
 		meshData.push_back(mdata);
 	}
 
-
-
 	glm::mat4 mMatrix = glm::mat4(1.0f);
 	for (auto& n : scene.topNodes) {
 		recursive_node_process(scene, *n.get(), mMatrix);
-	}
-	glm::mat4 duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(200, 0, 0));
-	for (auto& n : scene.topNodes) {
-		recursive_node_process(scene, *n.get(), duplMatrix);
-	}
-	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(-225, 0, 0));
-	for (auto& n : scene.topNodes) {
-		recursive_node_process(scene, *n.get(), duplMatrix);
-	}
-	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 225));
-	for (auto& n : scene.topNodes) {
-		recursive_node_process(scene, *n.get(), duplMatrix);
-	}
-	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, -225));
-	for (auto& n : scene.topNodes) {
-		recursive_node_process(scene, *n.get(), duplMatrix);
-	}
-	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(225, 0, -225));
-	for (auto& n : scene.topNodes) {
-		recursive_node_process(scene, *n.get(), duplMatrix);
-	}
-	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(-225, 0, -225));
-	for (auto& n : scene.topNodes) {
-		recursive_node_process(scene, *n.get(), duplMatrix);
-	}
-	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(225, 0, -225));
-	for (auto& n : scene.topNodes) {
-		recursive_node_process(scene, *n.get(), duplMatrix);
-	}
-	duplMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(-225, 0, -225));
-	for (auto& n : scene.topNodes) {
-		recursive_node_process(scene, *n.get(), duplMatrix);
 	}
 
 	// Vertex Data (Per Sub-Mesh), Index Data (Per Instance), Instance Data (Per Instance), Material Data (Per Material)
@@ -246,7 +344,7 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine)
 		}
 	}
 
-	// Descriptors (Binding 0, 1, 2)
+	// Descriptors (Binding 0 and 1)
 	{
 		//  ADDRESSES
 		VkDeviceAddress addresses[3];
@@ -286,12 +384,9 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine)
 
 		texture_data.setup_data(engine->_device, texture_descriptors);
 
-		// SCENE DATA
-		sceneDataBuffer = engine->create_buffer(sizeof(GPUSceneDataMultiDraw), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-		scene_data.setup_data(engine->_device, sceneDataBuffer, sizeof(GPUSceneDataMultiDraw));
 	}
 
-	// Indirect Draw Buffer Addresses (Binding 3)
+	// Indirect Draw Buffer Addresses (Binding 1)
 	{
 		boundingSphereBuffer = engine->create_buffer(meshBoundingSpheres.size() * sizeof(BoundingSphere)
 			, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
@@ -302,8 +397,10 @@ void GLTFMetallic_RoughnessMultiDraw::build_buffers(VulkanEngine* engine)
 			, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
 			, VMA_MEMORY_USAGE_CPU_TO_GPU);
 		ComputeCullingData data{};
-		data.opaqueCommandBufferAddress = engine->get_buffer_address(opaqueDrawBuffers.indirectDrawBuffer);
-		data.opaqueCommandBufferCount = opaqueDrawBuffers.instanceCount;
+		if (opaqueDrawBuffers.instanceCount > 0) {
+			data.opaqueCommandBufferAddress = engine->get_buffer_address(opaqueDrawBuffers.indirectDrawBuffer);
+			data.opaqueCommandBufferCount = opaqueDrawBuffers.instanceCount;
+		}
 		if (transparentDrawBuffers.instanceCount > 0) {
 			data.transparentCommandBufferAddress = engine->get_buffer_address(transparentDrawBuffers.indirectDrawBuffer);
 			data.transparentCommandBufferCount = transparentDrawBuffers.instanceCount;
@@ -350,14 +447,6 @@ void GLTFMetallic_RoughnessMultiDraw::recursive_node_process_instance_data(Loade
 	}
 }
 
-void GLTFMetallic_RoughnessMultiDraw::update_draw_data(GPUSceneDataMultiDraw& sceneData, glm::mat4& model_matrix)
-{
-	GPUSceneDataMultiDraw* multiDrawSceneUniformData = (GPUSceneDataMultiDraw*)sceneDataBuffer.info.pMappedData;
-	memcpy(multiDrawSceneUniformData, &sceneData, sizeof(GPUSceneDataMultiDraw));
-
-	update_model_matrix(model_matrix);
-}
-
 void GLTFMetallic_RoughnessMultiDraw::update_model_matrix(glm::mat4& topMatrix)
 {
 	LoadedGLTFMultiDraw& scene = *this->scene_ptr;
@@ -369,22 +458,23 @@ void GLTFMetallic_RoughnessMultiDraw::update_model_matrix(glm::mat4& topMatrix)
 	memcpy(instanceBuffer.info.pMappedData, instanceData.data(), instanceData.size() * sizeof(InstanceData));
 }
 
-void GLTFMetallic_RoughnessMultiDraw::cull(VkCommandBuffer cmd, VkPipeline pipeline, VkPipelineLayout pipelineLayout)
+void GLTFMetallic_RoughnessMultiDraw::cull(VkCommandBuffer cmd)
 {
 	// GPU Frustum Culling
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _computeCullingPipeline);
 	VkDescriptorBufferBindingInfoEXT compute_culling_binding_info[3]{};
 
 	compute_culling_binding_info[0] = buffer_addresses.get_descriptor_buffer_binding_info();
-	compute_culling_binding_info[1] = scene_data.get_descriptor_buffer_binding_info();
-	compute_culling_binding_info[2] = compute_culling_data_buffer_address.get_descriptor_buffer_binding_info();
+	compute_culling_binding_info[1] = compute_culling_data_buffer_address.get_descriptor_buffer_binding_info();
+	compute_culling_binding_info[2] = creator->get_scene_data_descriptor_buffer().get_descriptor_buffer_binding_info();
 	vkCmdBindDescriptorBuffersEXT(cmd, 3, compute_culling_binding_info);
 
 
 
-	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &buffer_addresses_descriptor_index, &offsets);
-	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &scene_data_descriptor_index, &offsets);
-	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &compute_culling_data_descriptor_index, &offsets);
+	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _computeCullingPipelineLayout, 0, 1, &buffer_addresses_descriptor_index, &offsets);
+	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _computeCullingPipelineLayout, 1, 1, 
+		&compute_culling_data_descriptor_index, &offsets);
+	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _computeCullingPipelineLayout, 2, 1, &scene_data_descriptor_index, &offsets);
 
 	vkCmdDispatch(cmd, static_cast<uint32_t>(
 		std::ceil(opaqueDrawBuffers.instanceCount + transparentDrawBuffers.instanceCount / 64.0f)), 1, 1);
@@ -406,13 +496,13 @@ void GLTFMetallic_RoughnessMultiDraw::draw(VkCommandBuffer cmd, VkExtent2D drawE
 
 		VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[3]{};
 		descriptor_buffer_binding_info[0] = buffer_addresses.get_descriptor_buffer_binding_info();
-		descriptor_buffer_binding_info[1] = scene_data.get_descriptor_buffer_binding_info();
-		descriptor_buffer_binding_info[2] = texture_data.get_descriptor_buffer_binding_info();
+		descriptor_buffer_binding_info[1] = texture_data.get_descriptor_buffer_binding_info();
+		descriptor_buffer_binding_info[2] = creator->get_scene_data_descriptor_buffer().get_descriptor_buffer_binding_info();
 		vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptor_buffer_binding_info);
 
-		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &buffer_addresses_descriptor_index, &offsets);
-		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1, &scene_data_descriptor_index, &offsets);
-		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, 1, &texture_data_descriptor_index, &offsets);
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 0, 1, &buffer_addresses_descriptor_index, &offsets);
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 1, 1, &texture_data_descriptor_index, &offsets);
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 2, 1, &scene_data_descriptor_index, &offsets);
 
 		vkCmdBindIndexBuffer(cmd, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	}
@@ -437,35 +527,4 @@ void GLTFMetallic_RoughnessMultiDraw::draw(VkCommandBuffer cmd, VkExtent2D drawE
 
 		vkCmdDrawIndexedIndirect(cmd, transparentDrawBuffers.indirectDrawBuffer.buffer, 0, transparentDrawBuffers.instanceCount, sizeof(VkDrawIndexedIndirectCommand));
 	}
-}
-
-void GLTFMetallic_RoughnessMultiDraw::destroy(VkDevice device, VmaAllocator allocator)
-{
-	buffer_addresses.destroy(device, allocator);
-	scene_data.destroy(device, allocator);
-	texture_data.destroy(device, allocator);
-	compute_culling_data_buffer_address.destroy(device, allocator);
-
-	vmaDestroyBuffer(allocator, vertexBuffer.buffer, vertexBuffer.allocation);
-	vmaDestroyBuffer(allocator, indexBuffer.buffer, indexBuffer.allocation);
-	vmaDestroyBuffer(allocator, instanceBuffer.buffer, instanceBuffer.allocation);
-	vmaDestroyBuffer(allocator, materialBuffer.buffer, materialBuffer.allocation);
-	vmaDestroyBuffer(allocator, buffer_addresses_underlying.buffer, buffer_addresses_underlying.allocation);
-
-	vmaDestroyBuffer(allocator, sceneDataBuffer.buffer, sceneDataBuffer.allocation);
-
-	vmaDestroyBuffer(allocator, indirect_draw_buffer_underlying.buffer, indirect_draw_buffer_underlying.allocation);
-	vmaDestroyBuffer(allocator, opaqueDrawBuffers.indirectDrawBuffer.buffer, opaqueDrawBuffers.indirectDrawBuffer.allocation);
-	vmaDestroyBuffer(allocator, transparentDrawBuffers.indirectDrawBuffer.buffer, transparentDrawBuffers.indirectDrawBuffer.allocation);
-	vmaDestroyBuffer(allocator, boundingSphereBuffer.buffer, boundingSphereBuffer.allocation);
-
-	vkDestroyPipelineLayout(device, layout, nullptr);
-
-	vkDestroyShaderEXT(device, shaderObject->_shaders[0], nullptr);
-	vkDestroyShaderEXT(device, shaderObject->_shaders[1], nullptr);
-
-	scene_ptr.reset();
-
-	fmt::print("Destroyed GLTFMetallic_RoughnessMultiDraw\n");
-
 }

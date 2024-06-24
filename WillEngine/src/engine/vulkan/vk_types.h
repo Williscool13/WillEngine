@@ -16,6 +16,22 @@ struct AllocatedImage {
 	VkFormat imageFormat;
 };
 
+
+struct CubemapImageView {
+	VkImageView imageView;
+	VkExtent3D imageExtent;
+	float roughness;
+	int descriptorBufferIndex;
+};
+
+struct AllocatedCubemap {
+	AllocatedImage allocatedImage;
+	std::vector<CubemapImageView> cubemapImageViews;
+	int mipLevels; //should be equal to cubemapImageViews.size()
+
+};
+
+
 struct AllocatedBuffer {
 	VkBuffer buffer;
 	VmaAllocation allocation;
@@ -86,7 +102,7 @@ struct ComputeCullingData {
 
 
 
-struct GPUSceneDataMultiDraw {
+struct SceneData {
 	glm::mat4 view;
 	glm::mat4 proj;
 	glm::mat4 viewproj;

@@ -13,6 +13,7 @@
 #include <vk_images.h>
 #include <vk_pipelines.h>
 #include "vk_draw_structure.h"
+#include <vk_constructors.h>
 
 #include <camera.h>
 
@@ -21,6 +22,7 @@ constexpr unsigned int FRAME_OVERLAP = 2;
 
 struct LoadedGLTFMultiDraw;
 struct GLTFMetallic_RoughnessMultiDraw;
+class VulkanResourceConstructor;
 
 struct DeletionQueue
 {
@@ -46,15 +48,6 @@ struct ComputePushConstants {
 	glm::vec4 data3;
 	glm::vec4 data4;
 };
-
-//struct GPUSceneData {
-//	glm::mat4 view;
-//	glm::mat4 proj;
-//	glm::mat4 viewproj;
-//	glm::vec4 ambientColor;
-//	glm::vec4 sunlightDirection; // w for sun power
-//	glm::vec4 sunlightColor;
-//};
 
 struct ComputeEffect {
 	const char* name;
@@ -111,6 +104,7 @@ public:
 	VkDevice _device;
 	VkSurfaceKHR _surface;
 	VmaAllocator _allocator;
+	std::shared_ptr<VulkanResourceConstructor> _resourceConstructor;
 
 	// Global Lifetime Deletion Queue
 	DeletionQueue _mainDeletionQueue;
@@ -163,6 +157,7 @@ public:
 	void draw();
 	void run();
 
+
 	void resize_swapchain();
 
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
@@ -194,14 +189,18 @@ public:
 
 	// Material Pipeline
 	std::shared_ptr<GLTFMetallic_RoughnessMultiDraw> multiDrawPipeline;
-	VkDescriptorSetLayout bufferAddressesDescriptorSetLayout;
-	VkDescriptorSetLayout sceneDataDescriptorSetLayout;
-	VkDescriptorSetLayout textureDescriptorSetLayout;
-	VkDescriptorSetLayout computeCullingDescriptorSetLayout;
 
 	float globalModelScale{ 1.0f };
-	std::unordered_map<std::string, std::shared_ptr<LoadedGLTFMultiDraw>> loadedMultiDrawScenes;
 	void update_scene();
+
+
+	VkDescriptorSetLayout singleUniformDescriptorSetLayout;
+	AllocatedBuffer _sceneDataBuffer;
+	DescriptorBufferUniform _sceneDataDescriptorBuffer;
+
+	// getters
+	VkDescriptorSetLayout get_scene_data_descriptor_set_layout() const { return singleUniformDescriptorSetLayout; }
+	DescriptorBufferUniform get_scene_data_descriptor_buffer() const { return _sceneDataDescriptorBuffer; }
 
 private:
 	void init_vulkan();
@@ -212,7 +211,6 @@ private:
 	void init_dearimgui();
 
 	void init_pipelines();
-	void init_compute_cull_pipeline();
 	void init_compute_pipelines();
 	void init_fullscreen_pipeline();
 	void init_default_data();

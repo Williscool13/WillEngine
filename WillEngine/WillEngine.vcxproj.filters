@@ -127,6 +127,12 @@
     <ClCompile Include="src\engine\vulkan\vk_draw_structure.cpp">
       <Filter>engine\vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="src\engine\vulkan\vk_constructors.cpp">
+      <Filter>engine\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\vulkan\vk_environment_map.cpp">
+      <Filter>engine\vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\engine\core\acceleration_structures.h">
@@ -172,6 +178,12 @@
       <Filter>engine\utils</Filter>
     </ClInclude>
     <ClInclude Include="src\engine\vulkan\vk_draw_structure.h">
+      <Filter>engine\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\vulkan\vk_constructors.h">
+      <Filter>engine\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\vulkan\vk_environment_map.h">
       <Filter>engine\vulkan</Filter>
     </ClInclude>
   </ItemGroup>

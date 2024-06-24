@@ -159,10 +159,12 @@ compile_shaders.sh</Command>
     <ClCompile Include="src\engine\utils\input.cpp" />
     <ClCompile Include="src\engine\utils\time_utils.cpp" />
     <ClCompile Include="src\engine\utils\utils.cpp" />
+    <ClCompile Include="src\engine\vulkan\vk_constructors.cpp" />
     <ClCompile Include="src\engine\vulkan\vk_descriptors.cpp" />
     <ClCompile Include="src\engine\vulkan\vk_descriptor_buffer.cpp" />
     <ClCompile Include="src\engine\vulkan\vk_draw_structure.cpp" />
     <ClCompile Include="src\engine\vulkan\vk_engine.cpp" />
+    <ClCompile Include="src\engine\vulkan\vk_environment_map.cpp" />
     <ClCompile Include="src\engine\vulkan\vk_images.cpp" />
     <ClCompile Include="src\engine\vulkan\vk_initializers.cpp" />
     <ClCompile Include="src\engine\vulkan\vk_loader.cpp" />
@@ -181,10 +183,12 @@ compile_shaders.sh</Command>
     <ClInclude Include="src\engine\utils\input.h" />
     <ClInclude Include="src\engine\utils\time_utils.h" />
     <ClInclude Include="src\engine\utils\utils.h" />
+    <ClInclude Include="src\engine\vulkan\vk_constructors.h" />
     <ClInclude Include="src\engine\vulkan\vk_descriptors.h" />
     <ClInclude Include="src\engine\vulkan\vk_descriptor_buffer.h" />
     <ClInclude Include="src\engine\vulkan\vk_draw_structure.h" />
     <ClInclude Include="src\engine\vulkan\vk_engine.h" />
+    <ClInclude Include="src\engine\vulkan\vk_environment_map.h" />
     <ClInclude Include="src\engine\vulkan\vk_images.h" />
     <ClInclude Include="src\engine\vulkan\vk_initializers.h" />
     <ClInclude Include="src\engine\vulkan\vk_loader.h" />

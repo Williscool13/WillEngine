@@ -14,8 +14,6 @@ layout (location = 0) out vec4 outFragColor;
 
 
 
-layout(set = 2, binding = 0) uniform sampler samplers[32];
-layout(set = 2, binding = 1) uniform texture2D textures[255];
 
 
 
@@ -133,7 +131,14 @@ void main()
 	vec3 final_color = (diffuse + specular) * light_color * nDotL;
 	final_color += ambient;
 
-	outFragColor = vec4(final_color, _col.w);
+
+	vec3 corrected_final_color = final_color / (final_color + vec3(1.0f)); // Reinhard
+	corrected_final_color = pow(corrected_final_color, vec3(1.0f / 2.2f)); // gamma correction
+
+	//outFragColor = vec4(final_color, _col.w); 
+	outFragColor = vec4(corrected_final_color, _col.w);
+	
+
 
 	// cool debug to show distance from camera!
 	//outFragColor = vec4(vec3(distance(inPosition, sceneData.cameraPos.xyz) / 100.0f), 1.0f);

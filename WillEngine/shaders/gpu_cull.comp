@@ -34,7 +34,7 @@ layout(buffer_reference, std430) buffer CommandBuffer
 	VkDrawIndexedIndirectCommand commands[];
 };
 
-layout(set = 2, binding = 0) uniform command_buffer_addresses
+layout(set = 1, binding = 0) uniform command_buffer_addresses
 {
 	CommandBuffer opaque_command_buffer;
 	uint opaque_command_buffer_count;

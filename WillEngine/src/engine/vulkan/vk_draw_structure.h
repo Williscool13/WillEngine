@@ -5,7 +5,6 @@
 #include "vk_engine.h"
 #include "vk_descriptor_buffer.h"
 #include "vk_loader.h"
-struct VmaAllocation_T;
 
 class VulkanEngine;
 struct LoadedGLTFMultiDraw;
@@ -19,13 +18,20 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	bool hasTransparents() const;
 	bool hasOpaques() const;
 
+	VulkanEngine* creator;
+
 	std::shared_ptr<LoadedGLTFMultiDraw> scene_ptr;
-
 	std::shared_ptr<ShaderObject> shaderObject;
-	// holds indirect draw buffers. Transparent will not go through compute culling.
 
-	VkPipelineLayout layout;
+	VkPipelineLayout renderPipelineLayout;
 
+	static VkDescriptorSetLayout bufferAddressesDescriptorSetLayout;
+	static VkDescriptorSetLayout textureDescriptorSetLayout;
+	static VkDescriptorSetLayout computeCullingDescriptorSetLayout;
+	static VkPipelineLayout _computeCullingPipelineLayout;
+	static VkPipeline _computeCullingPipeline;
+	static bool layoutsCreated;
+	static int useCount;
 
 	AllocatedBuffer indexBuffer;
 
@@ -37,22 +43,26 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	AllocatedBuffer instanceBuffer;
 	// access correct instance data w/ gl_instanceID. 
 
-	// BINDING 1: SCENE DATA
-	DescriptorBufferUniform scene_data;
-	AllocatedBuffer sceneDataBuffer;
-	// BINDING 2: TEXTURE DATA
+	// BINDING 1: TEXTURE DATA
 	//	when initializing, set descriptor count to be equal to the number of textures
 	DescriptorBufferSampler texture_data;
 
-	// BINDING 3: INDIRECT DRAW BUFFER
+	// BINDING 2: SCENE DATA
+	//DescriptorBufferUniform scene_data;
+	//AllocatedBuffer sceneDataBuffer;
+
+
+	// BINDING 1: INDIRECT DRAW BUFFER
 	DescriptorBufferUniform compute_culling_data_buffer_address;
 	AllocatedBuffer indirect_draw_buffer_underlying;
-	MultiDrawBuffers opaqueDrawBuffers;
-	MultiDrawBuffers transparentDrawBuffers;
+	MultiDrawBuffers opaqueDrawBuffers{ VK_NULL_HANDLE, 0 };
+	MultiDrawBuffers transparentDrawBuffers{ VK_NULL_HANDLE, 0 };
 	AllocatedBuffer boundingSphereBuffer;
 
-	void build_pipelines(VulkanEngine* engine, bool use_msaa, VkSampleCountFlagBits sample_count);
 
+	GLTFMetallic_RoughnessMultiDraw() = delete;
+	GLTFMetallic_RoughnessMultiDraw(VulkanEngine* engine, std::string& pathToScene, const char* vertShaderPath, const char* fragShaderPath, bool use_msaa, VkSampleCountFlagBits sample_count);
+	~GLTFMetallic_RoughnessMultiDraw();
 
 	// buffer building
 	size_t index_buffer_size = 0;
@@ -62,24 +72,18 @@ struct GLTFMetallic_RoughnessMultiDraw {
 	// store offsets of vertices
 	std::vector<uint32_t> vertexOffsets;
 
-	void load_gltf(VulkanEngine* engine, std::string& pathToScene);
 	void build_buffers(VulkanEngine* engine);
 	void recursive_node_process(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix);
 	void recursive_node_process_instance_data(LoadedGLTFMultiDraw& scene, Node& node, glm::mat4& topMatrix, int& current_model_index);
-	void update_draw_data(GPUSceneDataMultiDraw& sceneData, glm::mat4& model_matrix);
 	void update_model_matrix(glm::mat4& topMatrix);
 
 	bool buffersBuilt{ false };
 
 	const uint32_t buffer_addresses_descriptor_index = 0;
-	const uint32_t scene_data_descriptor_index = 1;
-	const uint32_t texture_data_descriptor_index = 2;
-	const uint32_t compute_culling_data_descriptor_index = 2;
+	const uint32_t texture_data_descriptor_index = 1;
+	const uint32_t scene_data_descriptor_index = 2;
+	const uint32_t compute_culling_data_descriptor_index = 1;
 	const VkDeviceSize offsets = 0;
-	void cull(VkCommandBuffer cmd, VkPipeline pipeline, VkPipelineLayout pipelineLayout);
+	void cull(VkCommandBuffer cmd);
 	void draw(VkCommandBuffer cmd, VkExtent2D drawExtents);
-
-
-
-	void destroy(VkDevice device, VmaAllocator allocator);
 };
