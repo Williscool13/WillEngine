@@ -44,21 +44,6 @@ struct DeletionQueue
 	}
 };
 
-struct ComputePushConstants {
-	glm::vec4 data1;
-	glm::vec4 data2;
-	glm::vec4 data3;
-	glm::vec4 data4;
-};
-
-struct ComputeEffect {
-	const char* name;
-
-	VkPipeline pipeline;
-	VkPipelineLayout layout;
-
-	ComputePushConstants _data;
-};
 
 struct FrameData {
 	VkCommandPool _commandPool;
@@ -141,21 +126,6 @@ public:
 	float _maxRenderScale{ 1.0f };
 
 
-#pragma region Unused Pipelines
-	// Background Pipeline (Compute)
-	VkPipelineLayout _backgroundEffectPipelineLayout;
-	std::vector<ComputeEffect> backgroundEffects;
-	int currentBackgroundEffect{ 0 };
-	VkDescriptorSetLayout computeImageDescriptorSetLayout;
-	DescriptorBufferSampler computeImageDescriptorBuffer;
-
-	// Generic Fullscreen Pipeline
-	VkPipelineLayout _fullscreenPipelineLayout;
-	VkDescriptorSetLayout _fullscreenDescriptorSetLayout;
-	DescriptorBufferSampler _fullscreenDescriptorBuffer;
-	ShaderObject _fullscreenPipeline;
-#pragma endregion
-
 	void init();
 	void cleanup();
 	void draw();
@@ -189,7 +159,6 @@ public:
 	ShaderObject _environmentPipeline;
 
 
-
 	// getters
 	VkDescriptorSetLayout get_scene_data_descriptor_set_layout() const { return singleUniformDescriptorSetLayout; }
 	DescriptorBufferUniform get_scene_data_descriptor_buffer() const { return _sceneDataDescriptorBuffer; }
@@ -204,9 +173,6 @@ private:
 	void init_dearimgui();
 
 	void init_pipelines();
-	void init_environment_pipeline();
-	void init_compute_pipelines();
-	void init_fullscreen_pipeline();
 	void init_default_data();
 
 	void create_swapchain(uint32_t width, uint32_t height);
@@ -217,8 +183,6 @@ private:
 
 	void cull_geometry(VkCommandBuffer cmd);
 
-	void draw_background(VkCommandBuffer cmd);
-	void draw_fullscreen(VkCommandBuffer cmd, AllocatedImage sourceImage, AllocatedImage targetImage);
 	void draw_geometry(VkCommandBuffer cmd);
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	void draw_environment(VkCommandBuffer cmd);

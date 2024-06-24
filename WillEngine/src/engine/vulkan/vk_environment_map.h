@@ -51,11 +51,6 @@ public:
 	void load_cubemap(bool firstTimeSetup);
 	void create_cubemap_image(bool firstTimeSetup);
 
-	void save_cubemap_image(const char* path);
-	void save_lut_image(const char* path);
-
-
-
 	bool flip_y{ false };
 
 	float diffuse_sample_delta{ 0.025f };

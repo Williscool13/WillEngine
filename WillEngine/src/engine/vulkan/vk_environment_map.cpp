@@ -57,7 +57,7 @@ EnvironmentMap::EnvironmentMap(VulkanEngine* creator, const char* path)
 			_equiImageDescriptorSetLayout = layoutBuilder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
 		}
-		//  STORAGE cubemaps - 0 is equi, 1 is diff irr, 2 is spec pref, 3 to 13 is for 10 mip levels of spec pref
+		//  STORAGE cubemaps
 		{
 			DescriptorLayoutBuilder layoutBuilder;
 			layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
@@ -85,8 +85,8 @@ EnvironmentMap::EnvironmentMap(VulkanEngine* creator, const char* path)
 		// Full Cubemap Descriptor
 		{
 			DescriptorLayoutBuilder layoutBuilder;
-			layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // diffuse/spec
-			layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // lut
+			layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // 1 cubemap  - diffuse/spec
+			layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // 1 2d image - lut
 			_environmentMapDescriptorSetLayout = layoutBuilder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT
 				, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 		}
@@ -282,10 +282,11 @@ EnvironmentMap::EnvironmentMap(VulkanEngine* creator, const char* path)
 		layoutsCreated = true;
 	}
 
+	// 0 is original cubemap, 1 is diff irr, 2 is spec pref, 3 to 13 is for 10 mip levels of spec pref
 	_cubemapStorageDescriptorBuffer = DescriptorBufferSampler(creator->_instance, creator->_device
 		, creator->_physicalDevice, creator->_allocator, _cubemapStorageDescriptorSetLayout, 12);
 	_cubemapDescriptorBuffer = DescriptorBufferSampler(creator->_instance, creator->_device
-		, creator->_physicalDevice, creator->_allocator, _cubemapDescriptorSetLayout, 2);
+		, creator->_physicalDevice, creator->_allocator, _cubemapDescriptorSetLayout, 1);
 	_equiImageDescriptorBuffer = DescriptorBufferSampler(creator->_instance, creator->_device
 		, creator->_physicalDevice, creator->_allocator, _equiImageDescriptorSetLayout, 1);
 
@@ -469,11 +470,7 @@ void EnvironmentMap::load_cubemap(bool firstTimeSetup)
 			specDiffMapDescriptor.imageView = _specDiffCubemap.imageView;
 			specDiffMapDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 			std::vector<DescriptorImageData> spec_diff_storage_descriptor = { { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &specDiffMapDescriptor, 1 } };
-			_cubemapStorageDescriptorBuffer.setup_data(_device, spec_diff_storage_descriptor); // index 1 - Probably Unnecessary. Test Later.
-
-			specDiffMapDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			std::vector<DescriptorImageData> spec_diff_combined_descriptor = { { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &specDiffMapDescriptor, 1 } };
-			_cubemapDescriptorBuffer.setup_data(_device, spec_diff_combined_descriptor); // index 1
+			_cubemapStorageDescriptorBuffer.setup_data(_device, spec_diff_storage_descriptor); // index 1
 		}
 
 
@@ -539,108 +536,6 @@ void EnvironmentMap::load_cubemap(bool firstTimeSetup)
 
 	fmt::print("Total Time {}ms\n", elapsed3.count() / 1000.0f);
 }
-
-void EnvironmentMap::save_cubemap_image(const char* path)
-{
-	size_t data_size = _cubemapResolution * _cubemapResolution * 4 * 6 * sizeof(float);
-	AllocatedBuffer _stagingBuffer = _creator->_resourceConstructor->create_staging_buffer(data_size);
-
-	_creator->immediate_submit([&](VkCommandBuffer cmd) {
-		VkImageSubresourceLayers subresource = {};
-		subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		subresource.mipLevel = 0;
-		subresource.baseArrayLayer = 0;
-		subresource.layerCount = 1;
-
-		std::vector<VkBufferImageCopy> bufferCopyRegions;
-		VkDeviceSize offset = 0;
-
-		for (uint32_t face = 0; face < 6; face++) {
-			subresource.baseArrayLayer = face;
-
-			VkBufferImageCopy bufferCopyRegion{};
-			bufferCopyRegion.imageSubresource = subresource;
-			bufferCopyRegion.imageExtent = { _cubemapResolution, _cubemapResolution, 1 };
-			bufferCopyRegion.bufferOffset = offset;
-			bufferCopyRegion.bufferRowLength = 0;
-			bufferCopyRegion.bufferImageHeight = 0;
-
-			bufferCopyRegions.push_back(bufferCopyRegion);
-			offset += _cubemapResolution * _cubemapResolution * 4 * sizeof(float);
-		}
-
-		vkutil::transition_image(cmd, _cubemapImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-
-		vkCmdCopyImageToBuffer(cmd, _cubemapImage.image, VK_IMAGE_LAYOUT_GENERAL
-			, _stagingBuffer.buffer, static_cast<uint32_t>(bufferCopyRegions.size()), bufferCopyRegions.data());
-
-		vkutil::transition_image(cmd, _cubemapImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-
-		});
-
-	void* data = _stagingBuffer.info.pMappedData;
-	float* imageData = static_cast<float*>(data);
-
-	std::string directory = path;
-
-	for (uint32_t face = 0; face < 6; face++) {
-		std::string facePath = directory + "\\" + "cubemap_face_" + std::to_string(face) + ".hdr";;
-		stbi_write_hdr(facePath.c_str(), _cubemapResolution, _cubemapResolution, 4, imageData + (_cubemapResolution * _cubemapResolution * 4 * face));
-		fmt::print("Saved face {} to: {}\n", face, facePath);
-	}
-
-	_creator->_resourceConstructor->destroy_buffer(_stagingBuffer);
-}
-
-void EnvironmentMap::save_lut_image(const char* path)
-{
-	// Lut image format is VK_FORMAT_R16G16_SFLOAT (half float)
-	size_t data_size = lutImageExtent.width * lutImageExtent.height * 2 * sizeof(float);
-	AllocatedBuffer _stagingBuffer = _creator->_resourceConstructor->create_staging_buffer(data_size);
-
-	_creator->immediate_submit([&](VkCommandBuffer cmd) {
-		VkBufferImageCopy bufferCopyRegion{};
-		bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		bufferCopyRegion.imageSubresource.mipLevel = 0;
-		bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
-		bufferCopyRegion.imageSubresource.layerCount = 1;
-		bufferCopyRegion.imageExtent = lutImageExtent;
-		bufferCopyRegion.bufferOffset = 0;
-		bufferCopyRegion.bufferRowLength = 0;
-		bufferCopyRegion.bufferImageHeight = 0;
-
-		vkutil::transition_image(cmd, _lutImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-
-		vkCmdCopyImageToBuffer(cmd, _lutImage.image, VK_IMAGE_LAYOUT_GENERAL, _stagingBuffer.buffer, 1, &bufferCopyRegion);
-
-		vkutil::transition_image(cmd, _lutImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		});
-
-	void* data = _stagingBuffer.info.pMappedData;
-	float* imageData = static_cast<float*>(data);
-
-	uint8_t* byteImageData = new uint8_t[lutImageExtent.width * lutImageExtent.height * 4];
-	float pow_eight = static_cast<float>(pow(2, 8) - 1);
-	for (size_t i = 0; i < lutImageExtent.width * lutImageExtent.height; ++i) {
-		float v1 = imageData[i * 2];
-		float v2 = imageData[i * 2 + 1];
-		uint8_t a = static_cast<uint8_t>(v1 * pow_eight);
-		uint8_t b = static_cast<uint8_t>(v2 * pow_eight);
-		byteImageData[i * 4] = a;
-		byteImageData[i * 4 + 1] = b;
-		byteImageData[i * 4 + 2] = 0;
-		byteImageData[i * 4 + 3] = 255;
-	}
-
-
-	stbi_write_png(path, lutImageExtent.width, lutImageExtent.height, 4, byteImageData, lutImageExtent.width * 4);
-
-	delete[] byteImageData;
-	_creator->_resourceConstructor->destroy_buffer(_stagingBuffer);
-}
-
-
 
 void EnvironmentMap::equi_to_cubemap_immediate()
 {
