@@ -37,7 +37,7 @@ void Camera::processSDLEvent(bool inFocus)
 
 glm::vec3 Camera::getViewDirection() const
 {
-    glm::quat pitchRotation = glm::angleAxis(pitch, glm::vec3{ -1.f, 0.f, 0.f });
+    glm::quat pitchRotation = glm::angleAxis(pitch, glm::vec3{ 1.f, 0.f, 0.f });
 	glm::quat yawRotation = glm::angleAxis(yaw, glm::vec3{ 0.f, -1.f, 0.f });
 
 	glm::quat rotation = yawRotation * pitchRotation;

@@ -95,7 +95,6 @@ public:
 	uint32_t _graphicsQueueFamily;
 
 	std::shared_ptr<VulkanResourceConstructor> _resourceConstructor;
-	std::shared_ptr<EnvironmentMap> _environmentMap;
 
 	// Swapchain
 	VkSwapchainKHR _swapchain;
@@ -142,6 +141,10 @@ public:
 	VkSampler _defaultSamplerLinear;
 	VkSampler _defaultSamplerNearest;
 
+	// Environment Map
+	std::shared_ptr<EnvironmentMap> _environmentMap;
+	int _currentEnvironmentMapIndex{ 1 };
+
 	// Material Pipeline
 	std::shared_ptr<GLTFMetallic_RoughnessMultiDraw> multiDrawPipeline;
 
@@ -164,6 +167,7 @@ public:
 	DescriptorBufferUniform get_scene_data_descriptor_buffer() const { return _sceneDataDescriptorBuffer; }
 
 	EnvironmentMap* get_current_environment_map() { return _environmentMap.get(); }
+	int get_current_environment_map_index() { return _currentEnvironmentMapIndex; }
 private:
 	void init_vulkan();
 	void init_swapchain();

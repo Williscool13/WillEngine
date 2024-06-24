@@ -10,6 +10,7 @@ void main()
 {
     // sample environment map
 	vec3 direction = normalize(fragPosition);
+	direction.y = -direction.y;
 	vec3 envColor = texture(environmentMap, direction).rgb;
 
 	// HDR to sRGB

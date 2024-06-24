@@ -33,8 +33,8 @@ protected:
 	// total size of layout is at least sum of all bindings
 	//   but it can be larger due to potential metadata or pading from driver implementationVkDeviceSize descriptor_buffer_offset;
 
-	std::stack<int> free_indices;
-
+	std::vector<int> free_indices;
+	int max_object_count;
 
 	// static these things cause they are the same for all instances.
 	//  staticing reduces size from 400 to 112 bytes

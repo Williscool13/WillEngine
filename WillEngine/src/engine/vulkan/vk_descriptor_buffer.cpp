@@ -27,8 +27,10 @@ DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device
 	// Buffer Offset
 	vkGetDescriptorSetLayoutBindingOffsetEXT(device, descriptorSetLayout, 0u, &descriptor_buffer_offset);
 
-	free_indices = std::stack<int>();
-	for (int i = maxObjectCount - 1; i >= 0; i--) { free_indices.push(i); }
+	free_indices = std::vector<int>();
+	for (int i = 0; i < maxObjectCount; i++) { free_indices.push_back(i); }
+
+	this->max_object_count = maxObjectCount;
 }
 
 
@@ -38,7 +40,7 @@ void DescriptorBuffer::destroy(VkDevice device, VmaAllocator allocator) {
 
 void DescriptorBuffer::free_descriptor_buffer(int index)
 {
-	free_indices.push(index);
+	free_indices.push_back(index);
 }
 
 VkDeviceSize DescriptorBuffer::aligned_size(VkDeviceSize value, VkDeviceSize alignment) {
@@ -88,9 +90,9 @@ int DescriptorBufferSampler::setup_data(VkDevice device, std::vector<DescriptorI
 		abort();
 		return -1;
 	}
-
-	int index = free_indices.top();
-	free_indices.pop();
+	
+	int index = free_indices[0];
+	free_indices.erase(free_indices.begin());
 
 	uint64_t accum_offset{ descriptor_buffer_offset };
 
@@ -162,6 +164,13 @@ int DescriptorBufferSampler::setup_data(VkDevice device, std::vector<DescriptorI
 }
 
 void DescriptorBufferSampler::set_data(VkDevice device, std::vector<DescriptorImageData> data, int index) {
+	for (int i = 0; i < max_object_count; i++) {
+		if (free_indices[i] == index) { 
+			free_indices.erase(free_indices.begin() + i); 
+			break; 
+		}
+	}
+
 	uint64_t accum_offset{ descriptor_buffer_offset };
 
 	for (int i = 0; i < data.size(); i++) {
@@ -254,8 +263,9 @@ int DescriptorBufferUniform::setup_data(VkDevice device, const AllocatedBuffer& 
 		return -1;
 	}
 
-	int index = free_indices.top();
-	free_indices.pop();
+	int index = free_indices[0];
+	free_indices.erase(free_indices.begin());
+
 
 
 	VkDeviceAddress ad = get_device_address(device, uniform_buffer.buffer);

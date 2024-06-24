@@ -57,7 +57,10 @@ void VulkanEngine::init()
 	init_sync_structures();
 
 	_resourceConstructor = std::make_unique<VulkanResourceConstructor>(this);
-	_environmentMap = std::make_shared<EnvironmentMap>(this, EnvironmentMap::defaultEquiPath);
+	_environmentMap = std::make_shared<EnvironmentMap>(this);
+	_environmentMap->load_cubemap(EnvironmentMap::defaultEquiPath, 0);
+	_environmentMap->load_cubemap("assets\\environments\\shanghai_riverside_4k.hdr", 1);
+
 	fmt::print(". . .\n");
 
 	init_default_data();
@@ -401,7 +404,7 @@ void VulkanEngine::update_scene()
 	glm::vec3 camera_view_direction = mainCamera.getViewDirection();
 
 	environmentMapSceneData.view = glm::lookAt(glm::vec3(0), camera_view_direction, glm::vec3(0, 1, 0));
-	proj[1][1] *= -1;
+	//proj[1][1] *= -1;
 	environmentMapSceneData.proj = proj;
 	environmentMapSceneData.viewproj = environmentMapSceneData.proj * environmentMapSceneData.view;
 
@@ -690,10 +693,11 @@ void VulkanEngine::draw_environment(VkCommandBuffer cmd)
 	_environmentPipeline.bind_shaders(cmd);
 	_environmentPipeline.bind_rasterizaer_discard(cmd, VK_FALSE);
 
+	DescriptorBufferSampler& cubemapSampler = get_current_environment_map()->get_cubemap_descriptor_buffer();
+
 	VkDescriptorBufferBindingInfoEXT bindings[2] = {
 		_environmentMapSceneDataDescriptorBuffer.get_descriptor_buffer_binding_info(),
-		_environmentMap->get_cubemap_descriptor_buffer().get_descriptor_buffer_binding_info(),
-		//_cubemapDescriptorBuffer.get_descriptor_buffer_binding_info(),
+		cubemapSampler.get_descriptor_buffer_binding_info(),
 	};
 
 	vkCmdBindDescriptorBuffersEXT(cmd, 2, bindings);
@@ -702,7 +706,7 @@ void VulkanEngine::draw_environment(VkCommandBuffer cmd)
 	constexpr uint32_t image_buffer_index = 1;
 
 	VkDeviceSize buffer_offset = 0;
-	VkDeviceSize image_buffer_offset = 0;//_environmentMap->get_cubemap_descriptor_buffer().descriptor_buffer_size;
+	VkDeviceSize image_buffer_offset = cubemapSampler.descriptor_buffer_size * _currentEnvironmentMapIndex;
 	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _environmentPipelineLayout
 		, 0, 1, &scene_data_index, &buffer_offset);
 	vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _environmentPipelineLayout

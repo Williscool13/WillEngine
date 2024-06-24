@@ -496,18 +496,23 @@ void GLTFMetallic_RoughnessMultiDraw::draw(VkCommandBuffer cmd, VkExtent2D drawE
 		shaderObject->bind_shaders(cmd);
 		shaderObject->bind_rasterizaer_discard(cmd, VK_FALSE);
 
+		DescriptorBufferSampler& currEnvironmentBuffer = creator->get_current_environment_map()->get_diff_spec_map_descriptor_buffer();
+
 		VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[4]{};
 		descriptor_buffer_binding_info[0] = buffer_addresses.get_descriptor_buffer_binding_info();
 		descriptor_buffer_binding_info[1] = texture_data.get_descriptor_buffer_binding_info();
 		descriptor_buffer_binding_info[2] = creator->get_scene_data_descriptor_buffer().get_descriptor_buffer_binding_info();
-		descriptor_buffer_binding_info[3] = creator->get_current_environment_map()->get_environment_map_descriptor_buffer().get_descriptor_buffer_binding_info();
+		descriptor_buffer_binding_info[3] = currEnvironmentBuffer.get_descriptor_buffer_binding_info();
+
+
+		VkDeviceSize envOffset = currEnvironmentBuffer.descriptor_buffer_size * creator->get_current_environment_map_index();
 
 		vkCmdBindDescriptorBuffersEXT(cmd, 4, descriptor_buffer_binding_info);
 
 		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 0, 1, &buffer_addresses_descriptor_index, &offsets);
 		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 1, 1, &texture_data_descriptor_index, &offsets);
 		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 2, 1, &scene_data_descriptor_index, &offsets);
-		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 3, 1, &environment_map_descriptor_index, &offsets);
+		vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 3, 1, &environment_map_descriptor_index, &envOffset);
 
 		vkCmdBindIndexBuffer(cmd, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	}

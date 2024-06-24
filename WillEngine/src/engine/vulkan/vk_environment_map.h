@@ -32,7 +32,11 @@ struct CubeToPrefilteredConstantData {
 	uint32_t sampleCount;
 };
 
-
+struct EnvironmentMapData {
+	std::string sourcePath;
+	AllocatedImage cubemapImage;
+	AllocatedImage specDiffCubemap;
+};
 
 class EnvironmentMap {
 public:
@@ -43,13 +47,11 @@ public:
 	static const char* defaultEquiPath;
 
 
-	EnvironmentMap(VulkanEngine* creator, const char* path);
+	EnvironmentMap(VulkanEngine* creator);
 	~EnvironmentMap();
 
 	// init sampler
-	bool load_equirectangular_image(const char* equiPath, bool firstTimeSetup);
-	void load_cubemap(bool firstTimeSetup);
-	void create_cubemap_image(bool firstTimeSetup);
+	void load_cubemap(const char* path, int environmentMapIndex = 0);
 
 	bool flip_y{ false };
 
@@ -66,14 +68,11 @@ public:
 
 	static VkDescriptorSetLayout _environmentMapDescriptorSetLayout; // contains 2 samplers -> diffuse/spec and lut
 
-	DescriptorBufferSampler get_equi_image_descriptor_buffer() const { return _equiImageDescriptorBuffer; }
-	DescriptorBufferSampler get_cubemap_descriptor_buffer() const { return _cubemapDescriptorBuffer; }
+	DescriptorBufferSampler& get_equi_image_descriptor_buffer() { return _equiImageDescriptorBuffer; }
+	DescriptorBufferSampler& get_cubemap_descriptor_buffer() { return _cubemapDescriptorBuffer; }
 
-	DescriptorBufferSampler get_environment_map_descriptor_buffer() const { return _environmentMapDescriptorBuffer; }
+	DescriptorBufferSampler& get_diff_spec_map_descriptor_buffer() { return _diffSpecMapDescriptorBuffer; }
 
-	AllocatedImage get_cubemap_image() const { return _cubemapImage; }
-	AllocatedImage get_spec_diff_cubemap() const { return _specDiffCubemap; }
-	AllocatedImage get_lut_image() const { return _lutImage; }
 private:
 	VulkanEngine* _creator;
 	VkDevice _device;
@@ -86,9 +85,7 @@ private:
 	DescriptorBufferSampler _cubemapDescriptorBuffer;
 
 	static DescriptorBufferSampler _lutDescriptorBuffer;
-
-
-	DescriptorBufferSampler _environmentMapDescriptorBuffer;
+	DescriptorBufferSampler _diffSpecMapDescriptorBuffer;
 
 	// Pipelines
 	static VkPipelineLayout _equiToCubemapPipelineLayout;
@@ -105,20 +102,29 @@ private:
 
 
 
+	const int MAX_ENVIRONMENT_MAPS{ 10 };
+	EnvironmentMapData _environmentMaps[10]{
+		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
+		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
+		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
+		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
+		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
+		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
+		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
+		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
+		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
+		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
+	};
 
-	AllocatedImage _equiImage;
-	AllocatedImage _cubemapImage;
-	AllocatedImage _specDiffCubemap;
-	//AllocatedCubemap _specDiffCubemap; // diffuse irradiance is at mip 5
 	static AllocatedImage _lutImage; // same for all environment maps
 
 	VkSampler _sampler;
 
-	std::string _equiPath;
+	//std::string _equiPath;
 	uint32_t _cubemapResolution{ 1024 };
 
 
-	void equi_to_cubemap_immediate();
-	void cubemap_to_difffuse_specular_immediate(AllocatedCubemap& cubemapMips);
+	void equi_to_cubemap_immediate(AllocatedImage& _cubemapImage, int _cubemapStorageDescriptorIndex);
+	void cubemap_to_difffuse_specular_immediate(AllocatedCubemap& cubemapMips, int _cubemapSampleDescriptorIndex);
 	void generate_lut_immediate();
 };
