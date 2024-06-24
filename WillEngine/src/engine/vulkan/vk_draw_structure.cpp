@@ -496,16 +496,16 @@ void GLTFMetallic_RoughnessMultiDraw::draw(VkCommandBuffer cmd, VkExtent2D drawE
 		shaderObject->bind_shaders(cmd);
 		shaderObject->bind_rasterizaer_discard(cmd, VK_FALSE);
 
-		DescriptorBufferSampler& currEnvironmentBuffer = creator->get_current_environment_map()->get_diff_spec_map_descriptor_buffer();
+		DescriptorBufferSampler& environmentDiffSpecBuffer = creator->get_current_environment_map()->get_diff_spec_map_descriptor_buffer();
 
 		VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[4]{};
 		descriptor_buffer_binding_info[0] = buffer_addresses.get_descriptor_buffer_binding_info();
 		descriptor_buffer_binding_info[1] = texture_data.get_descriptor_buffer_binding_info();
 		descriptor_buffer_binding_info[2] = creator->get_scene_data_descriptor_buffer().get_descriptor_buffer_binding_info();
-		descriptor_buffer_binding_info[3] = currEnvironmentBuffer.get_descriptor_buffer_binding_info();
+		descriptor_buffer_binding_info[3] = environmentDiffSpecBuffer.get_descriptor_buffer_binding_info();
 
 
-		VkDeviceSize envOffset = currEnvironmentBuffer.descriptor_buffer_size * creator->get_current_environment_map_index();
+		VkDeviceSize envOffset = environmentDiffSpecBuffer.descriptor_buffer_size * creator->get_current_environment_map_index();
 
 		vkCmdBindDescriptorBuffersEXT(cmd, 4, descriptor_buffer_binding_info);
 

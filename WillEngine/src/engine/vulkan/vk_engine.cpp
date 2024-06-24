@@ -59,7 +59,8 @@ void VulkanEngine::init()
 	_resourceConstructor = std::make_unique<VulkanResourceConstructor>(this);
 	_environmentMap = std::make_shared<EnvironmentMap>(this);
 	_environmentMap->load_cubemap(EnvironmentMap::defaultEquiPath, 0);
-	_environmentMap->load_cubemap("assets\\environments\\shanghai_riverside_4k.hdr", 1);
+	_environmentMap->load_cubemap("assets\\environments\\wasteland_clouds_4k.hdr", 1);
+	_environmentMap->load_cubemap("assets\\environments\\wasteland_clouds_puresky_4k.hdr", 2);
 
 	fmt::print(". . .\n");
 
@@ -71,11 +72,11 @@ void VulkanEngine::init()
 
 	init_dearimgui();
 
-	//std::string structurePath = { "assets\\models\\structure.glb" };
-	//mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
-	//mainCamera.yaw = -90.0f;
+	std::string structurePath = { "assets\\models\\structure.glb" };
+	mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
+	mainCamera.yaw = -90.0f;
 
-	std::string structurePath = { "assets\\models\\MetalRoughSpheres\\glTF\\MetalRoughSpheres.gltf" };
+	//std::string structurePath = { "assets\\models\\MetalRoughSpheres\\glTF\\MetalRoughSpheres.gltf" };
 
 	//std::string structurePath = { "assets\\models\\primitives\\primitives.gltf" };   
 	//std::string structurePath = { "assets\\models\\vokselia\\vokselia.gltf" };
@@ -909,7 +910,13 @@ void VulkanEngine::run()
 
 			ImGui::SliderFloat("Model Scale", &globalModelScale, 0.1f, 20.0f);
 
+			ImGui::SliderInt("Environment Map", &_currentEnvironmentMapIndex, 0, _environmentMap->MAX_ENVIRONMENT_MAPS - 1);
 
+			ImGui::Text("Model Matrix");
+			ImGui::InputFloat4("Row 1", glm::value_ptr(modelMatrix[0]));
+			ImGui::InputFloat4("Row 2", glm::value_ptr(modelMatrix[1]));
+			ImGui::InputFloat4("Row 3", glm::value_ptr(modelMatrix[2]));
+			ImGui::InputFloat4("Row 4", glm::value_ptr(modelMatrix[3]));
 			if (ImGui::Button("Change Model Matrix")) {
 				modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0, 1));
 			}

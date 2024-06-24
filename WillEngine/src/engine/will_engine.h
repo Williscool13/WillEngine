@@ -35,6 +35,7 @@
 #include <glm/vec4.hpp>
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/type_ptr.hpp>
 // project utilities
 #include <time_utils.h>
 #include <input.h>

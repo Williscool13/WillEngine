@@ -40,6 +40,7 @@ struct EnvironmentMapData {
 
 class EnvironmentMap {
 public:
+	static const int MAX_ENVIRONMENT_MAPS{ 10 };
 	static const int specularPrefilteredMipLevels{ 10 };
 	static const VkExtent3D specularPrefilteredBaseExtents;
 	static const VkExtent3D lutImageExtent;
@@ -102,7 +103,6 @@ private:
 
 
 
-	const int MAX_ENVIRONMENT_MAPS{ 10 };
 	EnvironmentMapData _environmentMaps[10]{
 		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
 		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},

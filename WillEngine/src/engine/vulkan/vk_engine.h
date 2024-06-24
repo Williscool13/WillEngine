@@ -143,7 +143,7 @@ public:
 
 	// Environment Map
 	std::shared_ptr<EnvironmentMap> _environmentMap;
-	int _currentEnvironmentMapIndex{ 1 };
+	int _currentEnvironmentMapIndex{ 0 };
 
 	// Material Pipeline
 	std::shared_ptr<GLTFMetallic_RoughnessMultiDraw> multiDrawPipeline;
