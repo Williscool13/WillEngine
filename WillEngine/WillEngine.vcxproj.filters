@@ -194,26 +194,8 @@
     <None Include="compile_shaders.sh">
       <Filter>shaders</Filter>
     </None>
-    <None Include="shaders\gradient_color.comp">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\sky.comp">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="shaders\include\input_structures.glsl">
       <Filter>shaders\include</Filter>
-    </None>
-    <None Include="shaders\mesh.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\mesh.vert">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\fullscreen.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\fullscreen.vert">
-      <Filter>shaders</Filter>
     </None>
     <None Include="shaders\pbr.frag">
       <Filter>shaders</Filter>
@@ -222,15 +204,6 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="shaders\gpu_cull.comp">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\environment.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\environment.vert">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\include\environment_include.glsl">
       <Filter>shaders</Filter>
     </None>
     <None Include="shaders\include\indirect_input_structures.glsl">
@@ -253,6 +226,9 @@
     </None>
     <None Include="shaders\environment\environment.frag">
       <Filter>shaders\environment</Filter>
+    </None>
+    <None Include="shaders\include\environment_include.glsl">
+      <Filter>shaders\include</Filter>
     </None>
   </ItemGroup>
 </Project>

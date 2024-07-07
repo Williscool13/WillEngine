@@ -41,14 +41,14 @@ struct EnvironmentMapData {
 class EnvironmentMap {
 public:
 	static const int MAX_ENVIRONMENT_MAPS{ 10 };
-	static const int specularPrefilteredMipLevels{ 10 };
+	static const int specularPrefilteredMipLevels{ 6 };
 	static const VkExtent3D specularPrefilteredBaseExtents;
 	static const VkExtent3D lutImageExtent;
 	static const int diffuseIrradianceMipLevel{ 5 };
 	static const char* defaultEquiPath;
 
 
-	EnvironmentMap(VulkanEngine* creator);
+	EnvironmentMap(VulkanEngine* creator); 
 	~EnvironmentMap();
 
 	// init sampler
@@ -57,7 +57,7 @@ public:
 	bool flip_y{ false };
 
 	float diffuse_sample_delta{ 0.025f };
-	int specular_sample_count{ 2048};
+	int specular_sample_count{ 2048 };
 
 
 	static bool layoutsCreated;

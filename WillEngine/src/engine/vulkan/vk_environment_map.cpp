@@ -436,7 +436,7 @@ void EnvironmentMap::load_cubemap(const char* path, int environmentMapIndex)
 		
 
 
-		int diffuseIndex = specularPrefilteredMipLevels - 5;
+		int diffuseIndex = diffuseIrradianceMipLevel;
 
 		AllocatedCubemap specDiffCubemap = {};
 		specDiffCubemap.allocatedImage = newEnvMapData.specDiffCubemap;

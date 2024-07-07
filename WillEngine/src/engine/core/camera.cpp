@@ -41,7 +41,8 @@ glm::vec3 Camera::getViewDirection() const
 	glm::quat yawRotation = glm::angleAxis(yaw, glm::vec3{ 0.f, -1.f, 0.f });
 
 	glm::quat rotation = yawRotation * pitchRotation;
-	return rotation * glm::vec3{ 0.f, 0.f, -1.f };
+    glm::vec4 forward = rotation * glm::vec4{ 0.f, 0.f, -1.f, 0.f };
+    return glm::vec3(forward);
 }
 
 glm::mat4 Camera::getViewMatrix() const

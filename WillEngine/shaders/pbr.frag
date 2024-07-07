@@ -94,14 +94,6 @@ void main()
 	vec3 albedo = inColor * _col.xyz;
 	float metallic = _metal_rough_sample.b * m.metal_rough_factors.x;
 	float roughness = _metal_rough_sample.g * m.metal_rough_factors.y;
-	//vec3 metal = texture(sampler2D(metalI, metalS), inUV).xyz;
-
-	//vec3 ambient = albedo * sceneData.ambientColor.xyz;
-
-
-	//outFragColor = vec4(color * lightValue *  sceneData.sunlightColor.w + ambient , _col.w);
-	
-	outFragColor = vec4(vec3(m.metal_rough_factors.x), 1.0f);
 
 	vec3 light_color = sceneData.sunlightColor.xyz * sceneData.sunlightColor.w;
 	vec3 N = normalize(inNormal);
@@ -132,15 +124,7 @@ void main()
 	vec3 irradiance = DiffuseIrradiance(N);
 	vec3 reflection_diffuse = irradiance * albedo;
 
-	//vec3 prefiltered = SpecularPrefiltered(V, N, roughness).rgb;
-	//vec3 testN = N;
-	//testN.y = -testN.y;
-	vec3 R = reflect(-V, N);
-	R.y = -R.y;
-	vec3 prefilteredColor = textureLod(environmentDiffuseAndSpecular, R, roughness * MAX_REFLECTION_LOD).rgb; // dont need to skip mip 5 because never goes above 4
-	vec2 envBRDF = texture(lut, vec2(max(dot(N, V), 0.0f), roughness)).rg;
-	vec3 reflection_specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
-
+	vec3 reflection_specular = SpecularReflection(V, N, roughness, F);
 	vec3 ambient = (kD * reflection_diffuse + reflection_specular);
 
 	vec3 final_color = (diffuse + specular) * light_color * nDotL;

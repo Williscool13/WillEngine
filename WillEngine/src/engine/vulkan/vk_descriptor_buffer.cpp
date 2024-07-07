@@ -164,7 +164,7 @@ int DescriptorBufferSampler::setup_data(VkDevice device, std::vector<DescriptorI
 }
 
 void DescriptorBufferSampler::set_data(VkDevice device, std::vector<DescriptorImageData> data, int index) {
-	for (int i = 0; i < max_object_count; i++) {
+	for (int i = 0; i < free_indices.size(); i++) {
 		if (free_indices[i] == index) { 
 			free_indices.erase(free_indices.begin() + i); 
 			break; 

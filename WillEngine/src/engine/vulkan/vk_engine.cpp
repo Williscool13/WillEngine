@@ -72,15 +72,12 @@ void VulkanEngine::init()
 
 	init_dearimgui();
 
-	std::string structurePath = { "assets\\models\\structure.glb" };
-	mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
-	mainCamera.yaw = -90.0f;
+	//std::string structurePath = { "assets\\models\\structure.glb" };
+	//mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
+	//mainCamera.yaw = -90.0f;
 
-	//std::string structurePath = { "assets\\models\\MetalRoughSpheres\\glTF\\MetalRoughSpheres.gltf" };
-
-	//std::string structurePath = { "assets\\models\\primitives\\primitives.gltf" };   
-	//std::string structurePath = { "assets\\models\\vokselia\\vokselia.gltf" };
-	//std::string structurePath = { "assets\\models\\virtual_city\\VirtualCity.glb" };
+	std::string structurePath = { "assets\\models\\MetalRoughSpheres\\glTF\\MetalRoughSpheres.gltf" };
+	//std::string structurePath = { "assets\\models\\glTF\\Sponza.gltf" };6
 	//std::string structurePath = { "assets\\models\\AlphaBlendModeTest\\glTF-Binary\\AlphaBlendModeTest.glb" };
 
 	multiDrawPipeline = std::make_shared<GLTFMetallic_RoughnessMultiDraw>(
@@ -89,7 +86,7 @@ void VulkanEngine::init()
 		, USE_MSAA, MSAA_SAMPLES
 	);
 	fmt::print(". . .\n");
-
+	 
 	_isInitialized = true;
 	fmt::print("Finished Initialization\n");
 	fmt::print("==========================================================================================\n");
@@ -439,13 +436,14 @@ void VulkanEngine::init_pipelines()
 
 		_environmentPipeline = {};
 
-		_environmentPipeline.init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-		_environmentPipeline.init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+		_environmentPipeline
+			.init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+			.init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE)
+			.init_blending(ShaderObject::BlendMode::NO_BLEND)
+			.enable_depthtesting(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+
 		if (USE_MSAA) _environmentPipeline.enable_msaa(MSAA_SAMPLES);
 		else _environmentPipeline.disable_multisampling();
-
-		_environmentPipeline.init_blending(ShaderObject::BlendMode::NO_BLEND);
-		_environmentPipeline.enable_depthtesting(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
 		_environmentPipeline._stages[0] = VK_SHADER_STAGE_VERTEX_BIT;
 		_environmentPipeline._stages[1] = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -683,16 +681,17 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
 void VulkanEngine::draw_environment(VkCommandBuffer cmd)
 {
-	_environmentPipeline.bind_viewport(cmd, static_cast<float>(_drawExtent.width), static_cast<float>(_drawExtent.height), 0.0f, 1.0f);
-	_environmentPipeline.bind_scissor(cmd, 0, 0, _drawExtent.width, _drawExtent.height);
-	_environmentPipeline.bind_input_assembly(cmd);
-	_environmentPipeline.bind_rasterization(cmd);
-	_environmentPipeline.bind_depth_test(cmd);
-	_environmentPipeline.bind_stencil(cmd);
-	_environmentPipeline.bind_multisampling(cmd);
-	_environmentPipeline.bind_blending(cmd);
-	_environmentPipeline.bind_shaders(cmd);
-	_environmentPipeline.bind_rasterizaer_discard(cmd, VK_FALSE);
+	_environmentPipeline
+		.bind_viewport(cmd, static_cast<float>(_drawExtent.width), static_cast<float>(_drawExtent.height), 0.0f, 1.0f)
+		.bind_scissor(cmd, 0, 0, _drawExtent.width, _drawExtent.height)
+		.bind_input_assembly(cmd)
+		.bind_rasterization(cmd)
+		.bind_depth_test(cmd)
+		.bind_stencil(cmd)
+		.bind_multisampling(cmd)
+		.bind_blending(cmd)
+		.bind_shaders(cmd)
+		.bind_rasterizaer_discard(cmd, VK_FALSE);
 
 	DescriptorBufferSampler& cubemapSampler = get_current_environment_map()->get_cubemap_descriptor_buffer();
 
@@ -984,7 +983,7 @@ void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& f
 	VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 	function(cmd);
-	VK_CHECK(vkEndCommandBuffer(cmd));
+	VK_CHECK(vkEndCommandBuffer(cmd)); 
 
 	VkCommandBufferSubmitInfo cmdSubmitInfo = vkinit::command_buffer_submit_info(cmd);
 	VkSubmitInfo2 submitInfo = vkinit::submit_info(&cmdSubmitInfo, nullptr, nullptr);
